@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZCube</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg0:#0b0d14;--bg1:#12151f;--bg2:#1a1e2d;--bgH:#2e3452;--bd:#303654;--t1:#e6e8f0;--t2:#9aa0b8;--t3:#606782;--ac:#4a8eff;--ac2:#3a72e0;--ok:#34d399;--warn:#fbbf24;--err:#f87171;--r:8px;--rl:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg0);color:var(--t1);overflow:hidden;height:100vh;width:100vw}
+button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inherit}
+
+/* ===== LAYOUT ===== */
+.app{display:flex;flex-direction:column;height:100vh;width:100vw}
+.topbar{flex:0 0 52px;background:var(--bg1);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 12px;gap:10px;z-index:100;flex-wrap:wrap}
+.topbar h1{font-size:17px;font-weight:700;white-space:nowrap}.topbar h1 b{color:var(--ac)}
+.topbar-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.main-area{flex:1;display:flex;overflow:hidden;height:0}
+.statsbar{flex:0 0 auto;min-height:44px;background:var(--bg1);border-top:1px solid var(--bd);display:flex;align-items:center;padding:8px 12px;gap:12px;font-size:12px;flex-wrap:wrap;justify-content:flex-start}
+.statsbar .si{white-space:nowrap}
+
+/* ===== SIDEBAR ===== */
+.sidebar{flex:0 0 340px;min-width:280px;max-width:400px;background:var(--bg1);border-right:1px solid var(--bd);overflow-y:auto;overflow-x:hidden;padding:14px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box}
+.sidebar::-webkit-scrollbar{width:5px}.sidebar::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+.pnl{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r)}
+.pnh{padding:10px 12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;background:var(--bg1);border-radius:var(--r)}.pnh:hover{background:var(--bgH)}
+.pnh .ar{margin-left:auto;font-size:9px;color:var(--t3);transition:transform .2s}.pnh.shut .ar{transform:rotate(-90deg)}
+.pnb{padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;overflow-x:hidden}.pnb.hid{display:none}
+.pnb::-webkit-scrollbar{width:4px}.pnb::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.fr{display:flex;flex-direction:column;gap:3px}.fr label{font-size:11px;color:var(--t2);font-weight:500;white-space:nowrap}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+input[type="number"],input[type="text"],select,textarea{background:var(--bg0);border:1px solid var(--bd);color:var(--t1);padding:7px 9px;border-radius:6px;font-size:12px;outline:none;transition:border .2s;box-sizing:border-box;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+input.invalid{border-color:var(--err);animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:500;border:1px solid var(--bd);background:var(--bg2);color:var(--t1);transition:all .15s;display:inline-flex;align-items:center;gap:5px;box-sizing:border-box}
+.btn:hover{background:var(--bgH);border-color:var(--t3)}
+.btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.bp{background:var(--ac);border-color:var(--ac);color:#fff}.bp:hover{background:var(--ac2)}
+.bd{border-color:var(--err);color:var(--err)}.bd:hover{background:rgba(248,113,113,.1)}
+.bs{padding:4px 9px;font-size:11px}.bb{width:100%;justify-content:center}
+.bg{display:flex;gap:5px;flex-wrap:wrap}
+.ctw{max-height:260px;overflow-y:auto;border:1px solid var(--bd);border-radius:6px}
+.ct{width:100%;border-collapse:collapse;font-size:11px}
+.ct th{background:var(--bg1);padding:6px 5px;text-align:left;font-weight:600;position:sticky;top:0;z-index:1;color:var(--t2);white-space:nowrap}
+.ct td{padding:5px;border-top:1px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ct tr:hover td{background:var(--bgH)}
+.ct .ac{text-align:center}.db{background:none;border:none;color:var(--err);font-size:15px;padding:1px 5px;border-radius:4px}.db:hover{background:rgba(248,113,113,.15)}
+
+/* ===== RIGHT CONTENT ===== */
+.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.vtabs{flex:0 0 auto;display:flex;flex-wrap:wrap;background:var(--bg1);border-bottom:1px solid var(--bd);padding:0 12px;gap:4px}
+.vt{padding:9px 16px;font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.vt:hover{color:var(--t1)}.vt.on{color:var(--ac);border-bottom-color:var(--ac)}
+.view-container{flex:1;position:relative;overflow:hidden}
+
+/* ===== VIEW PANELS ===== */
+.vp{position:absolute;top:0;left:0;right:0;bottom:0;display:none}
+.vp.on{display:block}
+#cv{display:block;width:100%;height:100%;background:#080a10}
+
+/* ===== 3D CONTROLS ===== */
+.vpres{position:absolute;top:10px;left:10px;display:flex;gap:5px;z-index:10;flex-wrap:wrap}
+.vctrl{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:5px;z-index:10}
+.vcb{width:34px;height:34px;border-radius:6px;background:var(--bg1);border:1px solid var(--bd);color:var(--t1);font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;box-sizing:border-box}
+.vcb:hover{background:var(--bgH)}
+.vcb.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.ob{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;transition:all .15s;box-sizing:border-box}
+.ob:hover{border-color:var(--ac);color:var(--t1)}
+.ob.on{background:var(--ac);border-color:var(--ac);color:#fff}
+
+/* Animation bar */
+.acbar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:var(--bg1);border:1px solid var(--bd);border-radius:var(--rl);padding:8px 16px;display:none;align-items:center;gap:10px;z-index:10;box-shadow:0 8px 32px rgba(0,0,0,.5);flex-wrap:wrap;justify-content:center}
+.abtn{width:30px;height:30px;border-radius:50%;background:var(--bg2);border:1px solid var(--bd);color:var(--t1);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;box-sizing:border-box}.abtn:hover,.abtn.on{background:var(--ac);border-color:var(--ac)}
+.aprog{width:180px;max-width:100%;height:4px;background:var(--bg0);border-radius:2px;cursor:pointer;position:relative;box-sizing:border-box}
+.apfill{height:100%;background:var(--ac);border-radius:2px;transition:width .08s linear}
+.aspr{position:relative}.asbtn{padding:3px 8px;font-size:10px;background:var(--bg2);border:1px solid var(--bd);color:var(--t1);border-radius:4px;cursor:pointer;box-sizing:border-box}
+.asmen{position:absolute;bottom:100%;left:0;background:var(--bg1);border:1px solid var(--bd);border-radius:6px;padding:3px;display:none;margin-bottom:4px;min-width:50px;z-index:11}
+.asmen.sh{display:block}.aso{padding:3px 8px;font-size:10px;cursor:pointer;border-radius:4px;text-align:center}.aso:hover{background:var(--bgH)}.aso.on{color:var(--ac)}
+.asinfo{font-size:11px;color:var(--t3);min-width:70px;text-align:center;white-space:nowrap}
+
+/* Tooltip */
+.ttp{position:absolute;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--r);padding:8px 12px;font-size:11px;pointer-events:none;z-index:50;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none;min-width:160px;max-width:300px;word-wrap:break-word}
+.ttp .tn{font-weight:600;font-size:12px;margin-bottom:5px}.ttp .tr{display:flex;justify-content:space-between;gap:10px;padding:1px 0}.ttp .tl{color:var(--t3)}
+
+/* Color legend */
+.cleg{position:absolute;bottom:60px;right:10px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;z-index:10;font-size:10px;display:none;max-height:200px;overflow-y:auto}
+.cleg .cli{display:flex;align-items:center;gap:6px;padding:2px 0;white-space:nowrap}.cleg .csw{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+
+/* Layer view */
+.lv{padding:16px;overflow-y:auto;height:100%}.ls{margin-bottom:16px}.lh{font-size:13px;font-weight:600;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bd)}
+.lg{display:flex;flex-wrap:wrap;gap:5px}.li{background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font-size:11px;min-width:130px;box-sizing:border-box}
+.li .ln{font-weight:600;margin-bottom:3px}.li .ld{color:var(--t3);font-size:10px}
+
+/* Report */
+.rv{padding:16px;overflow-y:auto;height:100%}.rs{margin-bottom:20px}.rs h3{font-size:14px;font-weight:600;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rdc{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:12px;box-sizing:border-box}
+.rdl{font-size:11px;color:var(--t3);margin-bottom:3px}.rdv{font-size:18px;font-weight:700}
+.rb{height:6px;background:var(--bg0);border-radius:3px;overflow:hidden;margin-top:6px}.rbf{height:100%;border-radius:3px}
+.rsg{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:12px;box-sizing:border-box}
+.rsg li{font-size:12px;padding:3px 0;color:var(--t2);list-style:none}.rsg li::before{content:'馃挕 '}
+.rpt{width:100%;border-collapse:collapse;font-size:11px}.rpt th{background:var(--bg1);padding:7px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap}.rpt td{padding:7px;border-top:1px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--bg1);border:1px solid var(--bd);border-radius:var(--r);padding:10px 20px;font-size:12px;z-index:2000;box-shadow:0 8px 32px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:var(--ok);color:var(--ok)}
+.toast.error{border-color:var(--err);color:var(--err)}
+.toast.info{border-color:var(--ac);color:var(--ac)}
+
+/* Keyboard hint */
+.kbd{display:inline-block;background:var(--bg0);border:1px solid var(--bd);border-radius:3px;padding:1px 5px;font-size:10px;font-family:monospace;color:var(--t3);margin-left:4px;vertical-align:middle}
+
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:center;justify-content:center;overflow-y:auto}
+.mo.sh{display:flex}
+.md{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--rl);width:90%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,.5);box-sizing:border-box}
+.mh{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;box-sizing:border-box}.mh h2{font-size:15px;white-space:nowrap}
+.mc{background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer}.mc:hover{color:var(--t1)}
+.mb{padding:16px 18px;overflow-y:auto;flex:1;box-sizing:border-box}.mf{padding:10px 18px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;box-sizing:border-box}
+.plt{width:100%;border-collapse:collapse;font-size:12px}.plt th{background:var(--bg0);padding:8px 6px;text-align:left;font-weight:600;color:var(--t2);position:sticky;top:0;white-space:nowrap}.plt td{padding:6px;border-top:1px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.plt tr:hover td{background:var(--bgH)}.ps{width:100%;margin-bottom:10px;box-sizing:border-box}
+.csa{width:100%;min-height:100px;font-family:monospace;font-size:11px;box-sizing:border-box}
+.csf{font-size:11px;color:var(--t3);margin-top:6px;padding:8px;background:var(--bg0);border-radius:6px;box-sizing:border-box}
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1024px) {
+  .sidebar{flex:0 0 300px;min-width:260px}
+  .vtabs{padding:0 8px}
+  .vt{padding:8px 12px}
+  .statsbar{gap:10px;padding:8px 8px}
+  .topbar{padding:0 8px}
+}
+
+@media (max-width: 768px) {
+  .main-area{flex-direction:column}
+  .sidebar{flex:0 0 auto;max-height:50vh;border-right:none;border-bottom:1px solid var(--bd);overflow-y:auto}
+  .right-panel{flex:1}
+  .vtabs{padding:0 6px}
+  .vt{padding:7px 10px;font-size:11px}
+  .statsbar{gap:8px;padding:6px 6px;font-size:11px}
+  .topbar{padding:0 6px;gap:8px}
+  .topbar h1{font-size:15px}
+  .topbar-actions .btn{padding:6px 12px;font-size:11px}
+  .pnb{padding:8px 10px}
+  .fg3{grid-template-columns:1fr 1fr;gap:5px}
+  .fg2{gap:5px}
+  .ctw{max-height:150px}
+  .acbar{padding:6px 12px;gap:8px}
+  .aprog{width:140px}
+  .md{width:95%;max-width:480px}
+  .mh{padding:12px 16px}
+  .mb{padding:14px 16px}
+  .mf{padding:8px 16px}
+}
+
+@media (max-width: 480px) {
+  .sidebar{min-width:240px}
+  .topbar{flex-direction:column;align-items:flex-start;min-height:60px;padding:8px 6px}
+  .topbar-actions{margin-left:0;width:100%;justify-content:flex-end}
+  .statsbar{flex-direction:column;align-items:flex-start;min-height:60px;gap:4px}
+  .vtabs{flex-direction:column;align-items:flex-start;padding:4px 6px}
+  .vt{padding:6px 8px;width:100%;text-align:left}
+  .fg3{grid-template-columns:1fr;gap:4px}
+  .fg2{grid-template-columns:1fr;gap:4px}
+  .bg{flex-direction:column}
+  .bg .btn{width:100%}
+  .acbar{flex-direction:column;gap:6px}
+  .aprog{width:100%}
+  .md{width:98%;max-width:320px}
+  .mh h2{font-size:14px}
+  .rb{display:none}
+}
+
+@media (max-height: 600px) {
+  .sidebar{max-height:250px}
+  .ctw{max-height:120px}
+  .acbar{bottom:8px;padding:6px 12px}
+  .cleg{bottom:40px}
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  body{background:white;color:black;overflow:visible;height:auto;width:auto}
+  .app{height:auto;width:auto}
+  .topbar,.sidebar,.statsbar,.vtabs,.vpres,.vctrl,.acbar,.cleg,.ttp,.mo,.toast{display:none}
+  .right-panel{flex:1}
+  .vp{position:static;display:block}
+  #cv{display:none}
+  #panelRp{display:block}
+  .rv{padding:20px}
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <h1>馃摝 ZCube<b>瑁呮煖璁＄畻</b></h1>
+    <div class="topbar-actions">
+      <button class="btn bp" onclick="doCalc()" id="calcBtn">鈻� 寮€濮嬭绠�</button>
+      <button class="btn" onclick="openM('ps')">馃捑 淇濆瓨</button>
+      <button class="btn" onclick="openM('pl')">馃搵 鏂规</button>
+      <button class="btn" onclick="expCSVQuick()">馃搳 Excel</button>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="pnl"><div class="pnh" onclick="togP(this)">馃殯 闆嗚绠辫缃� <span class="ar">鈻�</span></div><div class="pnb">
+        <div class="fr"><label>闆嗚绠辩被鍨�</label><select id="cType" onchange="onCType()">
+          <option value="20GP">20GP 20灏烘爣鍑嗘煖</option><option value="40GP">40GP 40灏烘爣鍑嗘煖</option>
+          <option value="40OT">40OT 40灏哄紑椤舵煖</option><option value="40HQ" selected>40HQ 40灏洪珮鏌�</option>
+          <option value="45HQ">45HQ 45灏洪珮鏌�</option><option value="40FR">40FR 40灏烘鏋舵煖</option>
+          <option value="custom">鑷畾涔�</option></select></div>
+        <div class="fg3"><div class="fr"><label>闀�(mm)</label><input type="number" id="cL" value="12032" min="100" max="20000"></div>
+          <div class="fr"><label>瀹�(mm)</label><input type="number" id="cW" value="2352" min="100" max="5000"></div>
+          <div class="fr"><label>楂�(mm)</label><input type="number" id="cH" value="2698" min="100" max="5000"></div></div>
+        <div class="fg2"><div class="fr"><label>鏈€澶ц浇閲�(kg)</label><input type="number" id="cMW" value="26580" min="100"></div>
+          <div class="fr"><label>鏌滈棬闄愰珮(mm)</label><input type="number" id="cDH" value="2580" min="100"></div></div>
+        <div style="margin-top:4px"><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:4px">鏀剧疆鏂瑰悜锛堝叏灞€锛屽彲澶氶€夛級</label>
+          <div id="orientGrid" style="display:flex;flex-wrap:wrap;gap:4px">
+            <button type="button" class="ob on" data-o="stand" onclick="togO(this)" title="搴曢潰L脳W鏈濅笅锛岄珮搴�=H">绔嬫斁</button>
+            <button type="button" class="ob on" data-o="standR" onclick="togO(this)" title="搴曢潰W脳L鏈濅笅锛岄珮搴�=H锛堟棆杞�90掳锛�">绔嬫斁鏃嬭浆</button>
+            <button type="button" class="ob" data-o="lay" onclick="togO(this)" title="搴曢潰L脳H鏈濅笅锛岄珮搴�=W">绔栨斁</button>
+            <button type="button" class="ob" data-o="side" onclick="togO(this)" title="搴曢潰H脳W鏈濅笅锛岄珮搴�=L">渚ф斁</button>
+            <button type="button" class="ob on" data-o="smart" onclick="togO(this)" title="灏濊瘯鎵€鏈�6绉嶆柟鍚戯紝鑷姩鎵炬渶浼�">鏅鸿兘鏃嬭浆</button>
+          </div></div>
+      </div></div>
+
+      <div class="pnl"><div class="pnh" onclick="togP(this)">馃摝 娣诲姞璐х墿 <span class="ar">鈻�</span></div><div class="pnb">
+        <div class="fr"><label>璐х墿鍚嶇О</label><input type="text" id="gN" placeholder="濡傦細绾哥A" maxlength="50"></div>
+        <div class="fg3"><div class="fr"><label>闀�(mm)</label><input type="number" id="gL" value="600" min="1" max="20000"></div>
+          <div class="fr"><label>瀹�(mm)</label><input type="number" id="gW" value="400" min="1" max="5000"></div>
+          <div class="fr"><label>楂�(mm)</label><input type="number" id="gH" value="300" min="1" max="5000"></div></div>
+        <div class="fg2"><div class="fr"><label>鏁伴噺</label><input type="number" id="gQ" value="1" min="1" max="99999"></div>
+          <div class="fr"><label>鍗曢噸(kg)</label><input type="number" id="gWT" value="0" min="0" max="99999"></div></div>
+        <div class="fg2"><div class="fr"><label>鍙壙杞�</label><select id="gST"><option value="1">鏄紙A绫伙細鍙壙杞戒笂鏂硅揣鐗╋級</option><option value="0">鍚︼紙B绫伙細涓嶅彲鍫嗗彔鍦ㄤ粬浜轰箣涓婏級</option></select></div>
+          <div class="fr"><label>鎵块噸涓婇檺(kg)</label><input type="number" id="gBR" value="0" min="0" max="99999" placeholder="0=涓嶉檺"></div></div>
+        <div class="fg2"><div class="fr"><label>涓嶅彲鍊掔疆</label><select id="gNI"><option value="0">鍚�</option><option value="1">鏄紙浠呭簳闈㈡湞涓嬶級</option></select></div>
+          <div class="fr"><label>绂佹搴曞眰</label><select id="gNB"><option value="0">鍚�</option><option value="1">鏄紙涓嶅彲鐩存帴鏀惧湴闈級</option></select></div></div>
+        <div class="fg2"><div class="fr"><label>闇€闈犲</label><select id="gFW"><option value="0">鍚�</option><option value="1">鏄紙璐撮潬闆嗚绠变晶澹侊級</option></select></div>
+          <div class="fr"><label>鐩搁偦璐х墿</label><input type="text" id="gAD" placeholder="濡傦細绾哥B锛堢┖=涓嶉檺锛�" maxlength="50"></div></div>
+        <div class="bg"><button class="btn bp bb" onclick="addCargo()" id="addBtn">鉃� 娣诲姞璐х墿 <span class="kbd">Enter</span></button>
+          <button class="btn bs" onclick="loadSample()">馃摜 绀轰緥</button>
+          <button class="btn bs" onclick="openM('ci')">馃搫 CSV瀵煎叆</button>
+          <button class="btn bs" onclick="document.getElementById('csvFile').click()">馃搧 鏂囦欢瀵煎叆</button>
+          <input type="file" id="csvFile" accept=".csv,.tsv,.txt" style="display:none" onchange="doImportFile(this)"></div>
+      </div></div>
+
+      <div class="pnl"><div class="pnh" onclick="togP(this)">馃搵 璐х墿鍒楄〃 <span class="ar">鈻�</span></div><div class="pnb">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:11px;color:var(--t2);">
+            鍏� <span id="cargoTotal" style="color:var(--ac);font-weight:600;">0</span> 浠惰揣鐗�
+          </div>
+        </div>
+        <div class="ctw"><table class="ct"><thead><tr><th>鍚嶇О</th><th>灏哄(mm)</th><th>鏁伴噺</th><th>閲嶉噺</th><th>绾︽潫</th><th class="ac">鎿嶄綔</th></tr></thead>
+          <tbody id="cTB"></tbody></table></div>
+        <button class="btn bd bs bb" onclick="clearAll()">馃棏锔� 娓呯┖鎵€鏈�</button>
+        <div id="colorLegend" style="display:flex;flex-wrap:wrap;gap:6px;padding-top:6px;font-size:10px;color:var(--t2)"></div>
+      </div></div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <div class="vtabs">
+        <div class="vt on" data-v="3d" onclick="switchV('3d')">馃帹 3D瑙嗗浘</div>
+        <div class="vt" data-v="ly" onclick="switchV('ly')">馃搳 鍒嗗眰瑙嗗浘</div>
+        <div class="vt" data-v="rp" onclick="switchV('rp')">馃摑 瑁呮煖鎶ュ憡</div>
+      </div>
+      <div class="view-container" id="viewBox">
+        <!-- 3D -->
+        <div class="vp on" id="panel3d">
+          <canvas id="cv"></canvas>
+          <div class="vpres"><button class="btn bs" onclick="setView('front')">姝ｉ潰</button><button class="btn bs" onclick="setView('top')">椤堕儴</button><button class="btn bs" onclick="setView('side')">渚ч潰</button></div>
+          <div class="vctrl"><button class="vcb" onclick="resetV()" title="閲嶇疆瑙嗚">鉄�</button><button class="vcb" id="wfBtn" onclick="togWF()" title="绾挎妯″紡">鈼�</button><button class="vcb" id="stackBtn" onclick="togStack()" title="鍫嗗彔妯″紡">馃摝</button></div>
+          <div class="acbar" id="animBar">
+            <button class="abtn" onclick="animStep(-1)">鈴�</button><button class="abtn" id="playBtn" onclick="togPlay()">鈻�</button><button class="abtn" onclick="animStep(1)">鈴�</button>
+            <div class="aprog" id="progBar" onmousedown="seekStart(event)"><div class="apfill" id="progFill" style="width:0%"></div></div>
+            <div class="asinfo" id="stepInfo">0/0</div>
+            <div class="aspr"><button class="asbtn" onclick="togSpdMenu()">1.0x</button>
+              <div class="asmen" id="spdMenu"><div class="aso" onclick="setSpd(.5)">.5x</div><div class="aso on" onclick="setSpd(1)">1x</div><div class="aso" onclick="setSpd(1.5)">1.5x</div><div class="aso" onclick="setSpd(2)">2x</div></div></div>
+            <button class="abtn" onclick="animReset()">鈫�</button>
+          </div>
+          <div class="cleg" id="colorLeg"></div>
+          <div class="ttp" id="tooltip"></div>
+        </div>
+        <!-- Layers -->
+        <div class="vp" id="panelLy"><div class="lv" id="lyCont"><p style="color:var(--t3);text-align:center;margin-top:60px;font-size:14px">璇峰厛杩愯瑁呮煖璁＄畻</p></div></div>
+        <!-- Report -->
+        <div class="vp" id="panelRp"><div class="rv" id="rpCont"><p style="color:var(--t3);text-align:center;margin-top:60px;font-size:14px">璇峰厛杩愯瑁呮煖璁＄畻</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Bar -->
+  <div class="statsbar">
+    <div class="si"><span class="sl">宸茶杞�:</span><span class="sv" style="color:var(--ok)" id="sLd">0浠�</span></div>
+    <div class="si"><span class="sl">浣撶Н鍒╃敤鐜�:</span><span class="sv" style="color:var(--ac)" id="sVU">0%</span></div>
+    <div class="si"><span class="sl">閲嶉噺鍒╃敤鐜�:</span><span class="sv" style="color:var(--ac)" id="sWU">0%</span></div>
+    <div class="si"><span class="sl">鏈杞�:</span><span class="sv" style="color:var(--warn)" id="sUl">0浠�</span></div>
+    <div class="si"><span class="sl">鎵€闇€鏌滄暟:</span><span class="sv" id="sCN">0</span></div>
+    <div class="si" style="margin-left:auto;color:var(--t3);font-size:11px">蹇嵎閿�: <span class="kbd">Space</span> 鎾斁 <span class="kbd">R</span> 閲嶇疆 <span class="kbd">F</span> 姝ｉ潰 <span class="kbd">T</span> 椤堕儴 <span class="kbd">W</span> 绾挎</div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="mo" id="m-ci"><div class="md"><div class="mh"><h2>馃搫 CSV瀵煎叆</h2><button class="mc" onclick="closeM('ci')">鉁�</button></div><div class="mb">
+  <textarea class="csa" id="csvIn" placeholder="绮樿创CSV鏁版嵁锛屾瘡琛屼竴鏉¤揣鐗�..."></textarea>
+  <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+    <button class="btn bs" onclick="document.getElementById('csvFile2').click()">馃搧 浠庢枃浠跺鍏�</button>
+    <input type="file" id="csvFile2" accept=".csv,.tsv,.txt" style="display:none" onchange="doImportFile(this)">
+    <span style="font-size:11px;color:var(--t3)">鎴栫洿鎺ョ矘璐村埌涓婃柟鏂囨湰妗�</span>
+  </div>
+  <div class="csf">
+    鏍煎紡: <strong>鍚嶇О,闀�,瀹�,楂�,閲�,鏁伴噺,鍙壙杞�,涓嶅€掔疆,绂佸簳灞�,闈犲,鐩搁偦璐х墿</strong><br>
+    绀轰緥1: 绾哥A,600,400,300,15,50,0,0,0,0, <span style="color:var(--t3)">(鍙壙杞�,鏃犵害鏉�)</span><br>
+    绀轰緥2: 澶т欢,1200,800,900,180,6,1,1,0,1, <span style="color:var(--t3)">(涓嶅彲鍫嗗彔+涓嶅€掔疆+闈犲)</span><br>
+    绀轰緥3: 绾哥B,500,350,250,8,50,0,0,0,0,绾哥A <span style="color:var(--t3)">(鍙壙杞�,闇€涓庣焊绠盇鐩搁偦)</span><br>
+    <span style="color:var(--warn)">鎻愮ず: 鍙壙杞� 0/1 路 涓嶅€掔疆/绂佸簳灞�/闈犲 0=鍚� 1=鏄� 路 鏀寔閫楀彿鎴朤ab鍒嗛殧 路 #寮€澶翠负娉ㄩ噴琛�</span>
+  </div>
+</div><div class="mf"><button class="btn" onclick="closeM('ci')">鍙栨秷</button><button class="btn bp" onclick="doImport()">瀵煎叆</button></div></div></div>
+<div class="mo" id="m-ps"><div class="md"><div class="mh"><h2>馃捑 淇濆瓨鏂规</h2><button class="mc" onclick="closeM('ps')">鉁�</button></div><div class="mb">
+  <div class="fr"><label>鏂规鍚嶇О</label><input type="text" id="planName" placeholder="杈撳叆鏂规鍚嶇О" style="display:none;"></div>
+  <div class="fr"><label>鑷姩鐢熸垚鍚嶇О</label><div id="autoPlanName" style="background:var(--bg0);border:1px solid var(--bd);color:var(--t1);padding:7px 9px;border-radius:6px;font-size:12px;outline:none;transition:border .2s;box-sizing:border-box;width:100%;">-- 璇风偣鍑荤敓鎴愬悕绉� --</div></div>
+  <div style="margin-top:10px;"><button class="btn bs" onclick="generatePlanName()">馃攧 閲嶆柊鐢熸垚鍚嶇О</button></div>
+</div><div class="mf"><button class="btn" onclick="closeM('ps')">鍙栨秷</button><button class="btn bp" onclick="savePlan()">淇濆瓨</button></div></div></div>
+<div class="mo" id="m-pl"><div class="md"><div class="mh"><h2>馃搵 鏂规绠＄悊</h2><button class="mc" onclick="closeM('pl')">鉁�</button></div><div class="mb">
+  <input type="text" class="ps" id="planSearch" placeholder="馃攳 鎼滅储..." oninput="renderPlans()">
+  <div style="margin-bottom:6px;display:flex;gap:5px"><select id="planSort" onchange="renderPlans()" style="flex:1">
+    <option value="cd">鍒涘缓鈫�</option><option value="ca">鍒涘缓鈫�</option><option value="md">淇敼鈫�</option><option value="ma">淇敼鈫�</option><option value="na">鍚嶇ОA-Z</option><option value="nd">鍚嶇ОZ-A</option></select>
+    <button class="btn bd bs" onclick="delPlans()">馃棏锔� 鍒犻櫎</button></div>
+  <div style="max-height:280px;overflow-y:auto"><table class="plt"><thead><tr><th><input type="checkbox" id="plAll" onchange="togAll()"></th><th>鍚嶇О</th><th>鍒涘缓</th><th>淇敼</th><th>鎿嶄綔</th></tr></thead>
+    <tbody id="plTB"></tbody></table></div>
+</div><div class="mf"><button class="btn" onclick="expCSV()">瀵煎嚭涓篍xcel</button><button class="btn" onclick="expPDF()">瀵煎嚭涓篜DF</button><button class="btn" onclick="closeM('pl')">鍏抽棴</button></div></div></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================================================================
+   ZCube 瑁呮煖璁＄畻宸ュ叿 v2.0 - 绯荤粺鎬т紭鍖栫増
+   浼樺寲鍐呭:
+   1. 瑁呯绠楁硶: 淇閲嶅鏂瑰悜(浠匶杞存棆杞�)銆佹敼杩涚┖闂村垎鍓层€佸姞鏉冭瘎鍒嗐€佸眰浼樺厛濉厖
+   2. 鎬ц兘: requestAnimationFrame鍔ㄧ敾銆佺┖闂翠笂闄愮鎺с€丏OM鎵归噺鏇存柊
+   3. 浠ｇ爜璐ㄩ噺: 缁熶竴$銆佽緭鍏ユ牎楠屻€丆SV 8瀛楁銆侀敊璇竟鐣�
+   4. UX: 蹇嵎閿€乀oast鎻愮ず銆佽緭鍏ラ獙璇佸弽棣堛€佽嚜鍔ㄦ敹璧烽潰鏉�
+   ================================================================ */
+
+/* ===== GLOBALS ===== */
+const $ = id => document.getElementById(id);
+
+const CONT={
+  '20GP':{l:5900,w:2352,h:2393,wt:21700,d:2280},'40GP':{l:12032,w:2352,h:2393,wt:26580,d:2280},
+  '40OT':{l:12032,w:2352,h:2342,wt:26580,d:2280},'40HQ':{l:12032,w:2352,h:2698,wt:26580,d:2580},
+  '45HQ':{l:13582,w:2352,h:2698,wt:27600,d:2580},'40FR':{l:12032,w:2240,h:2034,wt:26580,d:2034}
+};
+const PALETTE=[
+  [74,142,255],[51,212,153],[255,184,38],[248,113,113],[148,166,255],
+  [250,140,84],[166,120,248],[94,209,141],[255,141,166],[115,199,243],
+  [230,102,230],[128,230,128],[255,170,100],[100,180,255],[200,150,255]
+];
+const MAX_SPACES = 2000; // 绌洪棿鏁伴噺涓婇檺锛岄槻姝㈠ぇ鏁版嵁閲忔椂鍐呭瓨鐖嗙偢
+
+let cargoList=[],result=null,cargoListOrig=[];
+let animState={playing:false,progress:0,speed:1,timer:null,rafId:null};
+let canvas,ctx,W,H;
+let rotX=-0.5,rotY=0.6,zoom=1.0;
+let isDrag=false,dragStartX=0,dragStartY=0;
+let isPan=false,panX=0,panZ=0,panStartX=0,panStartY=0;
+let wireframe=false,stackMode=true,hoverIdx=-1;
+let renderList=[];
+let colorMap={};
+let logs=[];
+let needRedraw=false; // requestAnimationFrame 鏍囪
+
+/* ===== LOGGING ===== */
+function log(msg){logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`);console.log('[ZCube]',msg);}
+function clearLogs(){logs=[];}
+
+/* ===== TOAST ===== */
+function toast(msg,type='info',duration=2500){
+  const el=$('toast');el.textContent=msg;el.className='toast '+type;
+  requestAnimationFrame(()=>el.classList.add('show'));
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),duration);
+}
+
+/* ===== INPUT VALIDATION ===== */
+function validateInputs(){
+  const cn=getCn();
+  if(cn.l<=0||cn.w<=0||cn.h<=0){toast('闆嗚绠卞昂瀵稿繀椤诲ぇ浜�0','error');return false;}
+  if(cn.mw<=0){toast('鏈€澶ц浇閲嶅繀椤诲ぇ浜�0','error');return false;}
+  if(cn.dh>cn.h){toast('鏌滈棬闄愰珮涓嶈兘瓒呰繃闆嗚绠遍珮搴�','error');return false;}
+  if(cn.dh<=0){toast('鏌滈棬闄愰珮蹇呴』澶т簬0','error');return false;}
+  return true;
+}
+function validateCargoInput(){
+  const l=+$('gL').value, w=+$('gW').value, h=+$('gH').value;
+  const q=+$('gQ').value, wt=+$('gWT').value, br=+$('gBR').value;
+  const cn=getCn();
+  let ok=true;
+  // Reset invalid state
+  ['gL','gW','gH','gQ','gWT','gBR'].forEach(id=>$(id).classList.remove('invalid'));
+  if(l<=0||w<=0||h<=0){toast('璐х墿灏哄蹇呴』澶т簬0','error');$('gL').classList.add('invalid');$('gW').classList.add('invalid');$('gH').classList.add('invalid');ok=false;}
+  if(q<=0){toast('鏁伴噺蹇呴』澶т簬0','error');$('gQ').classList.add('invalid');ok=false;}
+  if(wt<0){toast('閲嶉噺涓嶈兘涓鸿礋鏁�','error');$('gWT').classList.add('invalid');ok=false;}
+  if(br<0){toast('鎵块噸涓嶈兘涓鸿礋鏁�','error');$('gBR').classList.add('invalid');ok=false;}
+  if(l>cn.l||w>cn.w||h>cn.h){
+    // Warning only, not blocking
+    toast('璐х墿鍗曟柟鍚戝昂瀵歌秴杩囬泦瑁呯锛屽彲鑳芥棤娉曡杞�','info',3000);
+  }
+  return ok;
+}
+
+/* ===== CONTAINER ===== */
+function onCType(){const t=$('cType').value;if(t==='custom')return;const c=CONT[t];$('cL').value=c.l;$('cW').value=c.w;$('cH').value=c.h;$('cMW').value=c.wt;$('cDH').value=c.d}
+function getCn(){return{l:+$('cL').value,w:+$('cW').value,h:+$('cH').value,mw:+$('cMW').value,dh:+$('cDH').value}}
+
+/* ===== CARGO ===== */
+function togO(btn){btn.classList.toggle('on');}
+function getGlobalOrients(){return Array.from(document.querySelectorAll('#orientGrid .ob.on')).map(b=>b.dataset.o);}
+
+function addCargo(){
+  if(!validateCargoInput()) return;
+  const n=$('gN').value.trim()||'璐х墿'+(cargoList.length+1);
+  cargoList.push({
+    id:Date.now()+Math.random(),n,
+    l:+$('gL').value,w:+$('gW').value,h:+$('gH').value,
+    q:+$('gQ').value||1,wt:+$('gWT').value,
+    st:$('gST').value==='1',br:+$('gBR').value,
+    ni:$('gNI').value==='1',nb:$('gNB').value==='1',
+    fw:$('gFW').value==='1',ad:$('gAD').value.trim()
+  });
+  renderTB();$('gN').value='';
+  toast(`宸叉坊鍔�: ${n}`,'success',1500);
+  // Focus back to name input for rapid entry
+  $('gN').focus();
+}
+function delCargo(i){cargoList.splice(i,1);renderTB()}
+function clearAll(){if(cargoList.length&&!confirm('纭畾娓呯┖鎵€鏈夎揣鐗�?'))return;cargoList=[];renderTB()}
+function updateCargoTotal(){
+  $('cargoTotal').textContent=cargoList.reduce((s,g)=>s+g.q,0);
+}
+function renderTB(){
+  $('cTB').innerHTML=cargoList.map((g,i)=>{const tags=[];tags.push(g.st?'鉁呭彲鎵胯浇':'馃毇涓嶅彲鍫嗗彔');if(g.ni)tags.push('馃敀涓嶅€掔疆');if(g.nb)tags.push('猬嗭笍绂佸簳灞�');if(g.fw)tags.push('馃П闈犲');if(g.ad)tags.push('馃敆閭�'+g.ad);return `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgb(${PALETTE[i%PALETTE.length]});margin-right:4px;vertical-align:middle"></span>${esc(g.n)}</td><td>${g.l}脳${g.w}脳${g.h}</td><td>${g.q}</td><td>${g.wt}kg</td><td style="font-size:10px">${tags.join(' ')}</td><td class="ac"><button class="db" onclick="delCargo(${i})">鉁�</button></td></tr>`}).join('');
+  updateCargoTotal();renderLegend();
+}
+function renderLegend(){
+  const el=$('colorLegend');
+  if(!cargoList.length){el.innerHTML='';return;}
+  el.innerHTML=cargoList.map((g,i)=>{
+    const c=PALETTE[i%PALETTE.length];
+    return `<div style="display:flex;align-items:center;gap:4px;white-space:nowrap"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:rgb(${c});flex-shrink:0"></span>${esc(g.n)}</div>`;
+  }).join('');
+}
+function loadSample(){
+  cargoList=[
+    {id:1,n:'绾哥A',l:600,w:400,h:300,q:80,wt:12,st:true,br:0,ni:false,nb:false,fw:false,ad:''},
+    {id:2,n:'绾哥B',l:500,w:350,h:250,q:120,wt:8,st:true,br:0,ni:false,nb:false,fw:false,ad:'绾哥A'},
+    {id:3,n:'澶т欢璁惧',l:1200,w:800,h:900,q:6,wt:180,st:false,br:0,ni:true,nb:false,fw:true,ad:''},
+    {id:4,n:'灏忎欢鍖呰９',l:300,w:200,h:200,q:200,wt:3,st:true,br:0,ni:false,nb:true,fw:false,ad:''},
+    {id:5,n:'妗惰璐х墿',l:500,w:500,h:600,q:20,wt:45,st:true,br:0,ni:true,nb:false,fw:false,ad:''}
+  ];
+  renderTB();toast('宸插姞杞界ず渚嬫暟鎹�','success');
+}
+
+/* ===== CSV IMPORT (鏀寔8瀛楁) ===== */
+function doImport(){
+  const raw=$('csvIn').value.trim();if(!raw)return;
+  let count=0;const errors=[];
+  raw.split('\n').forEach((ln,idx)=>{
+    const line=ln.trim();if(!line||line.startsWith('#'))return; // 鏀寔娉ㄩ噴琛�
+    let p;
+    if(line.includes(',')){p=line.split(',').map(s=>s.trim());}
+    else if(line.includes('\t')){p=line.split('\t').map(s=>s.trim());}
+    else{errors.push(`绗�${idx+1}琛�: 璇蜂娇鐢ㄩ€楀彿鎴朤ab鍒嗛殧`);return;}
+    if(p.length<4){errors.push(`绗�${idx+1}琛�: 鑷冲皯闇€瑕佸悕绉�+闀�+瀹�+楂榒);return;}
+    const name=p[0]||'璐х墿'+(cargoList.length+1);
+    const l=+p[1]||0,w=+p[2]||0,h=+p[3]||0;
+    const q=Math.max(1,+p[4]||1);
+    const wt=Math.max(0,+p[5]||0);
+    // 鈽� 鏍煎紡锛氬悕绉�,闀�,瀹�,楂�,閲�,鏁伴噺,0/1(鍙壙杞�),涓嶅彲鍊掔疆,绂佹搴曞眰,闇€闈犲,鐩搁偦璐х墿
+    const st=p[6]!==undefined?(p[6]!=='1'&&p[6]!=='鍚�'&&p[6]!=='false'&&p[6]!=='涓嶅彲鍫嗗彔'):true;
+    const br=0;
+    const ni=p[7]==='1'||p[7]==='鏄�'||p[7]==='true';
+    const nb=p[8]==='1'||p[8]==='鏄�'||p[8]==='true';
+    const fw=p[9]==='1'||p[9]==='鏄�'||p[9]==='true';
+    const ad=(p[10]||'').trim();
+    if(l<=0||w<=0||h<=0){errors.push(`绗�${idx+1}琛�: 灏哄蹇呴』澶т簬0`);return;}
+    cargoList.push({id:Date.now()+Math.random(),n:name,l,w,h,q,wt,st,br,ni,nb,fw,ad});count++;
+  });
+  renderTB();closeM('ci');$('csvIn').value='';
+  if(errors.length){toast(`瀵煎叆${count}绉嶏紝${errors.length}涓敊璇紙瑙佹帶鍒跺彴锛塦,'error',4000);console.warn('CSV瀵煎叆閿欒:\n'+errors.join('\n'));}
+  else{toast(`鎴愬姛瀵煎叆 ${count} 绉嶈揣鐗ー,'success');}
+}
+
+/* ===== CSV FILE IMPORT ===== */
+function doImportFile(input){
+  const f=input.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    $('csvIn').value=e.target.result;
+    doImport();
+    closeM('ci');
+    toast('鏂囦欢宸插姞杞�: '+f.name,'success');
+  };
+  reader.readAsText(f);
+  input.value='';
+}
+
+/* ===== SMART PACKING ALGORITHM ===== */
+// 鍒嗗眰鎵弿 + 澶氱瓥鐣ユ悳绱� + 鑷€傚簲鏂瑰悜 + 璐績鏈€浼樻斁缃�
+
+function getOrientations(item){
+  const all=[
+    {k:'stand',w:item.l,h:item.h,d:item.w},
+    {k:'standR',w:item.w,h:item.h,d:item.l},
+    {k:'lay',w:item.l,h:item.w,d:item.h},
+    {k:'layR',w:item.h,h:item.w,d:item.l},
+    {k:'up',w:item.w,h:item.l,d:item.h},
+    {k:'upR',w:item.h,h:item.l,d:item.w},
+  ];
+  // ni 寮哄埗浠呭簳闈㈡湞涓�
+  if(item.ni) return [all[0],all[1]];
+  // 鍏ㄥ眬鏀剧疆鏂瑰悜璁剧疆
+  const go=getGlobalOrients();
+  if(go.includes('smart')||!go.length) return all;
+  const result=[];
+  if(go.includes('stand')) result.push(all[0]);
+  if(go.includes('standR')) result.push(all[1]);
+  if(go.includes('lay')){result.push(all[2],all[3]);}
+  if(go.includes('side')){result.push(all[4],all[5]);}
+  return result.length?result:all;
+}
+
+function splitSpace(space,pos){
+  const ns=[];
+  const px=pos.x,py=pos.y,pz=pos.z;
+  const pw=pos.w,ph=pos.h,pd=pos.d;
+  const sx=space.x,sy=space.y,sz=space.z;
+  const sw=space.w,sh=space.h,sd=space.d;
+  if(sw-pw>10) ns.push({x:sx+pw,y:sy,z:sz,w:sw-pw,h:ph,d:pd});
+  if(sd-pd>10) ns.push({x:sx,y:sy,z:sz+pd,w:sw,h:ph,d:sd-pd});
+  if(sh-ph>10) ns.push({x:px,y:py+ph,z:pz,w:pw,h:sh-ph,d:pd});
+  return ns;
+}
+
+function pruneSpaces(spaces){
+  spaces=spaces.filter(s=>s.w>10&&s.h>10&&s.d>10);
+  if(spaces.length<=1) return spaces;
+  spaces.sort((a,b)=>(a.w*a.h*a.d)-(b.w*b.h*b.d));
+  const alive=new Array(spaces.length).fill(true);
+  let aliveCount=spaces.length;
+  for(let i=0;i<spaces.length&&aliveCount>MAX_SPACES;i++){
+    if(!alive[i])continue;
+    for(let j=i+1;j<spaces.length;j++){
+      if(!alive[j])continue;
+      const a=spaces[i],b=spaces[j];
+      if(b.x<=a.x&&b.y<=a.y&&b.z<=a.z&&
+         b.x+b.w>=a.x+a.w&&b.y+b.h>=a.y+a.h&&b.z+b.d>=a.z+a.d){
+        alive[i]=false;aliveCount--;break;
+      }
+    }
+  }
+  if(aliveCount>MAX_SPACES){
+    const indexed=spaces.map((s,i)=>({i,vol:s.w*s.h*s.d}));
+    indexed.sort((a,b)=>b.vol-a.vol);
+    const keep=new Set(indexed.slice(0,MAX_SPACES).map(x=>x.i));
+    for(let i=0;i<alive.length;i++) if(alive[i]&&!keep.has(i)){alive[i]=false;aliveCount--;}
+  }
+  return spaces.filter((_,i)=>alive[i]);
+}
+
+function canStack(sp,ori,item,placed,cn){
+  if(sp.y<=0) return true;
+  if(!item.st) return false;
+  for(const p of placed){
+    if(!p.pos) continue;
+    const pp=p.pos;
+    if(Math.abs(pp.y+pp.h-sp.y)>1) continue;
+    if(!p.st) continue;
+    if(p.br>0 && item.wt>p.br) continue;
+    if(sp.y+ori.h>cn.h) continue;
+    if(sp.x>=pp.x && sp.z>=pp.z &&
+       sp.x+ori.w<=pp.x+pp.w && sp.z+ori.d<=pp.z+pp.d) return true;
+  }
+  return false;
+}
+
+function checkConstraints(item,pos,cn,placed){
+  if(item.nb && pos.y<=0) return false;
+  if(item.fw){
+    const onWall=(pos.x<=1)||(pos.z<=1)||(pos.x+pos.w>=cn.w-1)||(pos.z+pos.d>=cn.l-1);
+    if(!onWall) return false;
+  }
+  return true;
+}
+
+// ===== 鑷€傚簲鏈€浼樻斁缃� =====
+// 瀵规瘡涓┖闂达紝灏濊瘯鎵€鏈夋柟鍚戯紝閫夋氮璐规渶灏戠殑
+function tryPlaceItem(item,spaces,placed,cn,totalWt){
+  if(totalWt+item.wt>cn.mw) return null;
+  const oris=getOrientations(item);
+
+  // 绗竴姝ワ細鍙犳斁鍦ㄥ悓灏哄宸叉斁缃墿鍝佷笂
+  if(item.st && stackMode && placed.length>0){
+    let bestScore=1e18,bestPos=null;
+    for(const p of placed){
+      if(!p.st||!p.pos) continue;
+      if(p.br>0&&item.wt>p.br) continue;
+      const pAw=Math.max(p.l,p.w),pAd=Math.min(p.l,p.w);
+      const iAw=Math.max(item.l,item.w),iAd=Math.min(item.l,item.w);
+      if(pAw!==iAw||pAd!==iAd) continue;
+      const topY=p.pos.y+p.pos.h;
+      for(const ori of oris){
+        if(ori.w<=p.pos.w&&ori.d<=p.pos.d){
+          if(topY+ori.h>cn.h) continue;
+          let blocked=false;
+          for(const q of placed){
+            if(!q.pos) continue;
+            if(Math.abs(q.pos.y-topY)<1&&q.pos.x===p.pos.x&&q.pos.z===p.pos.z){blocked=true;break;}
+          }
+          if(blocked) continue;
+          const testPos={x:p.pos.x,y:topY,z:p.pos.z,w:ori.w,h:ori.h,d:ori.d};
+          if(!checkConstraints(item,testPos,cn,placed)) continue;
+          // 璇勫垎锛氱┖闂存氮璐规渶灏�
+          const wasted=(p.pos.w-ori.w)*(p.pos.d-ori.d)*ori.h;
+          const score=topY*1e9+p.pos.z*1e5+p.pos.x*1e3+wasted;
+          if(score<bestScore){bestScore=score;bestPos=testPos;}
+        }
+      }
+    }
+    if(bestPos){
+      for(let si=0;si<spaces.length;si++){
+        const sp=spaces[si];
+        if(Math.abs(sp.x-bestPos.x)<1&&Math.abs(sp.y-bestPos.y)<1&&Math.abs(sp.z-bestPos.z)<1){
+          const rem=sp.h-bestPos.h;
+          if(rem>10) spaces[si]={x:sp.x,y:bestPos.y+bestPos.h,z:sp.z,w:sp.w,h:rem,d:sp.d};
+          else spaces.splice(si,1);
+          break;
+        }
+      }
+      return{pos:bestPos,space:null};
+    }
+  }
+
+  // 绗簩姝ワ細鑷€傚簲鏈€浼樻斁缃� 鈥斺€� 閬嶅巻鎵€鏈夌┖闂疵楁墍鏈夋柟鍚戯紝閫夋渶浼�
+  let bestPos=null,bestScore=1e18,bestSpace=null;
+  for(let si=0;si<spaces.length;si++){
+    const sp=spaces[si];
+    for(const ori of oris){
+      if(ori.w>sp.w||ori.h>sp.h||ori.d>sp.d) continue;
+      if(sp.y<=0&&sp.y+ori.h>cn.dh) continue;
+      if(sp.y>0&&(!item.st||!stackMode)) continue;
+      if(sp.y>0&&!canStack(sp,ori,item,placed,cn)) continue;
+      const testPos={x:sp.x,y:sp.y,z:sp.z,w:ori.w,h:ori.h,d:ori.d};
+      if(!checkConstraints(item,testPos,cn,placed)) continue;
+      // 澶氱淮璇勫垎锛氬眰浼樺厛 + 鍓嶆柟浼樺厛 + 绌洪棿閫傞厤搴� + 绾︽潫濂栧姳
+      let score=sp.y*1e9+sp.z*1e5+sp.x*1e3;
+      // 绌洪棿閫傞厤搴︼細鐗╁搧灏哄瓒婃帴杩戠┖闂村昂瀵歌秺濂斤紙鍑忓皯纰庣墖锛�
+      score+=(sp.w-ori.w)*100+(sp.d-ori.d)*100+(sp.h-ori.h)*50;
+      // 闈犲濂栧姳
+      if(item.fw&&(sp.x<=1||sp.z<=1||sp.x+ori.w>=cn.w-1||sp.z+ori.d>=cn.l-1)) score-=5e8;
+      // 鐩搁偦濂栧姳
+      if(item.ad&&placed.length>0){
+        let minD=Infinity;
+        for(const p of placed){
+          if(!p.pos||p.n!==item.ad) continue;
+          const d=Math.abs(sp.x+ori.w/2-p.pos.x-p.pos.w/2)+Math.abs(sp.z+ori.d/2-p.pos.z-p.pos.d/2);
+          minD=Math.min(minD,d);
+        }
+        if(minD<Infinity) score-=Math.max(0,1e6-minD*10);
+      }
+      // 绋冲畾鎬�
+      if(sp.y<=0) score-=(ori.w*ori.d)/(cn.w*cn.l)*1e4;
+      if(score<bestScore){bestScore=score;bestPos=testPos;bestSpace=sp;}
+    }
+  }
+  if(!bestPos) return null;
+  return{pos:bestPos,space:bestSpace};
+}
+
+// ===== 鍗曟鎵撳寘妯℃嫙 =====
+function simulatePack(items,cn){
+  let placed=[],totalWt=0;
+  let spaces=[{x:0,y:0,z:0,w:cn.w,h:cn.h,d:cn.l}];
+  let unplaced=[];
+  for(const item of items){
+    const r=tryPlaceItem(item,spaces,placed,cn,totalWt);
+    if(r){
+      placed.push({...item,pos:r.pos});
+      totalWt+=item.wt;
+      if(r.space){
+        const ns=splitSpace(r.space,r.pos);
+        const idx=spaces.indexOf(r.space);
+        if(idx>=0) spaces.splice(idx,1,...ns);
+      }
+      if(placed.length%10===0) spaces=pruneSpaces(spaces);
+    } else { unplaced.push(item); }
+  }
+  spaces=pruneSpaces(spaces);
+  // 濉紳杞�
+  if(unplaced.length>0){
+    unplaced.sort((a,b)=>a.l*a.w*a.h-b.l*b.w*b.h);
+    const still=[];
+    for(const item of unplaced){
+      const r=tryPlaceItem(item,spaces,placed,cn,totalWt);
+      if(r){
+        placed.push({...item,pos:r.pos});
+        totalWt+=item.wt;
+        if(r.space){
+          const ns=splitSpace(r.space,r.pos);
+          const idx=spaces.indexOf(r.space);
+          if(idx>=0) spaces.splice(idx,1,...ns);
+        }
+        if(placed.length%10===0) spaces=pruneSpaces(spaces);
+      } else { still.push(item); }
+    }
+    unplaced=still;
+  }
+  const volU=placed.reduce((s,p)=>s+p.pos.w*p.pos.h*p.pos.d,0);
+  return{placed,totalWt,unplaced,volU};
+}
+
+/* ===== MAIN CALCULATION ===== */
+function doCalc(){
+  try {
+  clearLogs();
+  if(!validateInputs()) return;
+  if(!cargoList.length){toast('璇峰厛娣诲姞璐х墿','error');return;}
+  
+  const calcBtn=$('calcBtn');
+  calcBtn.textContent='鈴� 鏅鸿兘璁＄畻涓�...';calcBtn.disabled=true;
+  
+  cargoListOrig=[...cargoList.map(g=>({...g}))];
+
+  const cn=getCn();
+  const volC=cn.l*cn.w*cn.h;
+  log(`璐ф煖: ${cn.l}脳${cn.w}脳${cn.h}mm, 杞介噸${cn.mw}kg`);
+
+  let items=[];
+  cargoList.forEach(g=>{for(let i=0;i<g.q;i++) items.push({...g,uid:g.id+'_'+i});});
+  log(`璐х墿鎬绘暟: ${items.length}浠禶);
+
+  // ===== 澶氱瓥鐣ユ悳绱� + 灞€閮ㄤ紭鍖� =====
+  function constraintSort(a,b){
+    if(a.fw!==b.fw) return a.fw?-1:1;
+    if(a.nb!==b.nb) return a.nb?1:-1;
+    if(a.st!==b.st) return a.st?1:-1;
+    const va=a.l*a.w*a.h, vb=b.l*b.w*b.h;
+    if(vb!==va) return vb-va;
+    const aw=Math.max(a.l,a.w),ad=Math.min(a.l,a.w);
+    const bw=Math.max(b.l,b.w),bd=Math.min(b.l,b.w);
+    return (bw*10000+bd)-(aw*10000+ad) || b.h-a.h;
+  }
+
+  const strategies=[
+    {name:'绾︽潫浼樺厛',fn:constraintSort},
+    {name:'浣撶Н闄嶅簭',fn:(a,b)=>b.l*b.w*b.h-a.l*a.w*a.h},
+    {name:'浣撶Н鍗囧簭',fn:(a,b)=>a.l*a.w*a.h-b.l*b.w*b.h},
+    {name:'楂樺害闄嶅簭',fn:(a,b)=>b.h-a.h||b.l*b.w*b.h-a.l*a.w*a.h},
+    {name:'搴曢潰褰掔粍',fn:(a,b)=>{
+      const aw=Math.max(a.l,a.w),ad=Math.min(a.l,a.w);
+      const bw=Math.max(b.l,b.w),bd=Math.min(b.l,b.w);
+      return(bw*10000+bd)-(aw*10000+ad)||b.h-a.h;
+    }},
+    {name:'瀹介潰浼樺厛',fn:(a,b)=>b.l*b.w-a.l*a.w||b.h-a.h},
+    {name:'浜ゆ浛澶у皬',fn:(a,b)=>b.l*b.w*b.h-a.l*a.w*a.h},
+  ];
+
+  // 绗竴闃舵锛氬绛栫暐鏋勫缓
+  let best=null;
+  for(const s of strategies){
+    const sorted=[...items].sort(s.fn);
+    const r=simulatePack(sorted,cn);
+    log(`[${s.name}] 瑁�${r.placed.length}浠� 鏈${r.unplaced.length}浠� 鍒╃敤${(r.volU/volC*100).toFixed(1)}%`);
+    if(!best||r.placed.length>best.placed.length||(r.placed.length===best.placed.length&&r.volU>best.volU)){
+      best={...r,strategy:s.name};
+    }
+    if(r.unplaced.length===0) break;
+  }
+  log(`鏈€浼樼瓥鐣�: ${best.strategy}, 瑁呰浇${best.placed.length}浠禶);
+
+  // 绗簩闃舵锛氬眬閮ㄤ紭鍖栵紙瀵规渶浼樼粨鏋滃皾璇曟敼杩涳級
+  if(best.unplaced.length>0&&best.placed.length>0){
+    // 灏濊瘯锛氭妸鏈€鍚庢斁缃殑鍑犱釜鐗╁搧绉昏蛋锛岀敤涓嶅悓椤哄簭閲嶆帓
+    const placed=best.placed;
+    const unplaced=best.unplaced;
+    // 灏濊瘯鎶婂凡鏀剧疆鐨勫ぇ浠剁Щ璧帮紝鎹㈠叆鏈斁缃殑灏忎欢
+    for(let swapCount=1;swapCount<=Math.min(5,placed.length);swapCount++){
+      const moved=placed.splice(placed.length-swapCount,swapCount);
+      const freedWt=moved.reduce((s,m)=>s+m.wt,0);
+      const freedVol=moved.reduce((s,m)=>s+m.pos.w*m.pos.h*m.pos.d,0);
+      // 鐢ㄩ噴鏀剧殑绌洪棿灏濊瘯鏀剧疆鏈杞界殑鐗╁搧
+      const extraItems=[...unplaced,...moved.map(m=>{const{pos,...rest}=m;return rest;})];
+      extraItems.sort((a,b)=>a.l*a.w*a.h-b.l*b.w*b.h);
+      const freedSpaces=[{x:0,y:0,z:0,w:cn.w,h:cn.h,d:cn.l}];
+      // 鐢ㄥ綋鍓嶅凡鏀剧疆鐗╁搧鏋勫缓绌洪棿
+      let tempPlaced=[];
+      let tempWt=0;
+      for(const p of placed){
+        tempPlaced.push(p);
+        tempWt+=p.wt;
+      }
+      // 绠€鍗曢噸璇�
+      const newItems=[...placed.map(p=>{const{pos,...rest}=p;return rest;}),...unplaced];
+      newItems.sort(constraintSort);
+      const r2=simulatePack(newItems,cn);
+      if(r2.placed.length>best.placed.length||(r2.placed.length===best.placed.length&&r2.volU>best.volU)){
+        log(`灞€閮ㄤ紭鍖�(閲嶆帓${swapCount}浠�): 瑁呰浇${r2.placed.length}浠� 鈫慲);
+        best={...r2,strategy:best.strategy+'+浼樺寲'};
+      }
+      // 鎭㈠
+      placed.push(...moved);
+    }
+  }
+
+  let placed=best.placed;
+  let totalWt=best.totalWt;
+  let unplacedList=best.unplaced;
+
+  volU=placed.reduce((s,p)=>s+p.pos.w*p.pos.h*p.pos.d,0);
+  const unplaced=unplacedList.length;
+  const vu=(volU/volC*100).toFixed(1);
+  const wu=(totalWt/cn.mw*100).toFixed(1);
+  log(`鏈€缁�: 瑁呰浇${placed.length}浠�, 鏈${unplaced}浠�, 浣撶Н${vu}%, 閲嶉噺${wu}%`);
+
+  result={
+    placed,unplaced,cn,
+    stats:{
+      ld:placed.length,ul:unplaced,tot:items.length,
+      vu,wu,volU,totalWt,
+      cnN:Math.ceil(items.length/Math.max(placed.length,1))
+    }
+  };
+
+  // 鏇存柊璐х墿鍒楄〃锛氬噺鍘诲凡瑁呰浇鏁伴噺
+  if(placed.length>0){
+    const placedCounts={};
+    placed.forEach(p=>{placedCounts[p.id]=(placedCounts[p.id]||0)+1;});
+    cargoList=cargoList.map(g=>{
+      const pc=placedCounts[g.id]||0;
+      return pc<g.q?{...g,q:g.q-pc}:null;
+    }).filter(Boolean);
+    renderTB();
+  }
+
+  updateStats();buildRenderList();renderLayers();renderReport();
+  animReset();$('animBar').style.display='flex';
+  toast(`瑁呰浇瀹屾垚: ${placed.length}浠�, 鍒╃敤鐜�${vu}%`,'success');
+
+  requestAnimationFrame(()=>{resizeCanvas();requestAnimationFrame(drawScene)});
+
+  } catch(e) {
+    console.error('doCalc error:', e);
+    toast('璁＄畻鍑洪敊: ' + e.message, 'error', 5000);
+  }
+  // 鎭㈠鎸夐挳
+  const calcBtn=$('calcBtn');
+  calcBtn.textContent='鈻� 寮€濮嬭绠�';calcBtn.disabled=false;
+}
+
+/* ===== STATS ===== */
+function updateStats(){
+  if(!result)return;const s=result.stats;
+  $('sLd').textContent=s.ld+'浠�';$('sVU').textContent=s.vu+'%';
+  $('sWU').textContent=s.wu+'%';$('sUl').textContent=s.ul+'浠�';
+  $('sCN').textContent=s.cnN;
+}
+
+/* ===== 3D ENGINE ===== */
+// 鍏夋簮閰嶇疆 鈥� 涓夌偣鐓ф槑绯荤粺
+const LIGHT_KEY  = [0.35, 0.75, 0.55];  // 涓诲厜锛堟殩鐧斤級
+const LIGHT_FILL = [-0.4, 0.35, -0.3];  // 琛ュ厜锛堝喎鑹诧紝寮憋級
+const LIGHT_BACK = [-0.2, 0.5, -0.7];   // 杞粨鍏夛紙鑳岄潰锛�
+const AMBIENT    = 0.18;                 // 鐜鍏夊己搴�
+const SPEC_POWER = 24;                   // 楂樺厜鎸囨暟
+const SPEC_INTENSITY = 0.25;             // 楂樺厜寮哄害
+
+// 鐩告満骞虫粦杩囨浮鐘舵€�
+let camTarget = null; // { rotX, rotY, zoom, t0, dur }
+let camSource = null;
+
+function init3D(){
+  canvas=$('cv');
+  const ro=new ResizeObserver(()=>{resizeCanvas();requestRedraw()});
+  ro.observe(canvas.parentElement);
+  resizeCanvas();
+  initStackMode();
+
+  // Mouse interaction 鈥� 宸﹂敭鏃嬭浆, 涓敭骞崇Щ, 婊氳疆缂╂斁
+  canvas.addEventListener('mousedown',e=>{
+    if(e.button===1){
+      // 涓敭骞崇Щ
+      e.preventDefault();
+      isPan=true;panStartX=e.clientX;panStartY=e.clientY;
+      canvas.style.cursor='move';
+    }else if(e.button===0){
+      // 宸﹂敭鏃嬭浆
+      isDrag=true;dragStartX=e.clientX;dragStartY=e.clientY;
+      canvas.style.cursor='grabbing';
+    }
+  });
+  window.addEventListener('mouseup',e=>{
+    if(e.button===1){isPan=false;canvas.style.cursor='default';}
+    if(e.button===0){isDrag=false;canvas.style.cursor='default';}
+  });
+  canvas.addEventListener('mousemove',e=>{
+    if(isPan){
+      const dx=e.clientX-panStartX;
+      const dy=e.clientY-panStartY;
+      panX+=dx*5/zoom;
+      panZ+=dy*5/zoom;
+      panStartX=e.clientX;panStartY=e.clientY;
+      camTarget=null;
+    }
+    if(isDrag){
+      rotY+=(e.clientX-dragStartX)*0.008;
+      rotX+=(e.clientY-dragStartY)*0.008;
+      rotX=Math.max(-1.5,Math.min(1.5,rotX));
+      dragStartX=e.clientX;dragStartY=e.clientY;
+      camTarget=null;
+    }
+    checkHover(e);requestRedraw();
+  });
+  // Touch support for mobile
+  let touchStartX=0,touchStartY=0;
+  canvas.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){
+      const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY;
+      e.preventDefault();
+    }
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    if(e.touches.length===1){
+      const t=e.touches[0];
+      rotY+=(t.clientX-touchStartX)*0.008;
+      rotX+=(t.clientY-touchStartY)*0.008;
+      rotX=Math.max(-1.5,Math.min(1.5,rotX));
+      touchStartX=t.clientX;touchStartY=t.clientY;
+      camTarget=null;
+      requestRedraw();e.preventDefault();
+    }
+  },{passive:false});
+
+  canvas.addEventListener('wheel',e=>{e.preventDefault();zoom*=e.deltaY>0?1.08:0.92;zoom=Math.max(0.15,Math.min(6,zoom));camTarget=null;requestRedraw()},{passive:false});
+  canvas.addEventListener('mouseleave',()=>{hoverIdx=-1;$('tooltip').style.display='none';requestRedraw()});
+
+  drawScene();
+}
+
+// requestAnimationFrame 鑺傛祦閲嶇粯
+function requestRedraw(){
+  if(!needRedraw){needRedraw=true;requestAnimationFrame(()=>{needRedraw=false;drawScene();});}
+}
+
+function resizeCanvas(){
+  const box=canvas.parentElement;
+  const rect=box.getBoundingClientRect();
+  if(rect.width<10||rect.height<10) return;
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=Math.round(rect.width*dpr);
+  canvas.height=Math.round(rect.height*dpr);
+  canvas.style.width=rect.width+'px';
+  canvas.style.height=rect.height+'px';
+  W=canvas.width;H=canvas.height;
+}
+
+function buildRenderList(){
+  colorMap={};let ci=0;
+  renderList=result.placed.map(p=>{
+    if(!(p.n in colorMap)) colorMap[p.n]=PALETTE[ci++%PALETTE.length];
+    return{pos:p.pos,color:colorMap[p.n],name:p.n,wt:p.wt};
+  });
+  const leg=$('colorLeg');
+  if(renderList.length){
+    leg.style.display='block';
+    leg.innerHTML=Object.entries(colorMap).map(([n,c])=>`<div class="cli"><div class="csw" style="background:rgb(${c[0]},${c[1]},${c[2]})"></div><span>${esc(n)}</span></div>`).join('');
+  } else leg.style.display='none';
+}
+
+// 褰掍竴鍖栧厜婧愬悜閲�
+function normalize3(v){const l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);return l>0?[v[0]/l,v[1]/l,v[2]/l]:[0,1,0]}
+const L_KEY=normalize3(LIGHT_KEY), L_FILL=normalize3(LIGHT_FILL), L_BACK=normalize3(LIGHT_BACK);
+
+// 3D鎶曞奖 鈥� 缂撳瓨cos/sin閬垮厤閲嶅璁＄畻
+function proj(x,y,z){
+  const cn=result?result.cn:getCn();
+  x-=cn.w/2;z-=cn.l/2;
+  x+=panX;z+=panZ; // 骞崇Щ鍋忕Щ
+  const cosR=Math.cos(rotY),sinR=Math.sin(rotY);
+  const cosP=Math.cos(rotX),sinP=Math.sin(rotX);
+  const rx2=x*cosR-z*sinR,rz2=x*sinR+z*cosR;
+  const ry2=y*cosP-rz2*sinP,rz3=y*sinP+rz2*cosP;
+  const scale=zoom*Math.min(W,H)/3000;
+  return[W/2+rx2*scale,H/2-ry2*scale,rz3];
+}
+
+// ===== 宸ヤ笟杞欢鏍囧噯 3D 鍧愭爣杞存帶浠� =====
+function drawCoordinateAxes(){
+  const RADIUS = 52, TIP_LEN = 10, TIP_W = 4;
+  const CX = 65, CY = H-65;
+  const cosR=Math.cos(rotY), sinR=Math.sin(rotY);
+  const cosP=Math.cos(rotX), sinP=Math.sin(rotX);
+
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = '#0b0d14';
+  ctx.beginPath(); ctx.arc(CX,CY,30,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 0.15;
+  ctx.strokeStyle = '#303654'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(CX,CY,30,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha = 1.0;
+
+  // 鍙傝€冨渾鐜�
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = '#606782'; ctx.lineWidth = 0.8;
+  const ringR = 22;
+  ctx.beginPath();
+  for(let a=0; a<=Math.PI*2; a+=0.05){
+    const rx = ringR*Math.cos(a), rz = ringR*Math.sin(a);
+    const px = rx*cosR - rz*sinR;
+    const py = -(rx*sinR + rz*cosR)*sinP*0.5;
+    if(a===0) ctx.moveTo(CX+px, CY+py);
+    else ctx.lineTo(CX+px, CY+py);
+  }
+  ctx.closePath(); ctx.stroke();
+  ctx.globalAlpha = 1.0;
+  ctx.restore();
+
+  const axes = [
+    { endX:CX+RADIUS*cosR, endY:CY-RADIUS*sinR*sinP*0.6, col:'#f87171', label:'X' },
+    { endX:CX, endY:CY-RADIUS*cosP, col:'#34d399', label:'Y' },
+    { endX:CX+RADIUS*sinR, endY:CY+RADIUS*cosR*sinP*0.6, col:'#4a8eff', label:'Z' }
+  ];
+  const depthOrder = axes.map((a,i)=>({i,d:a.endY})).sort((a,b)=>a.d-b.d);
+
+  depthOrder.forEach(({i})=>{
+    const a = axes[i];
+    const dx = a.endX-CX, dy = a.endY-CY;
+    const len = Math.sqrt(dx*dx+dy*dy)||1;
+    const nx = dx/len, ny = dy/len;
+
+    ctx.save();ctx.shadowColor=a.col;ctx.shadowBlur=6;
+    ctx.strokeStyle=a.col;ctx.lineWidth=2.5;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(a.endX,a.endY);ctx.stroke();ctx.restore();
+
+    ctx.strokeStyle=a.col;ctx.lineWidth=2.2;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(a.endX,a.endY);ctx.stroke();
+
+    const tipBaseX=a.endX-nx*TIP_LEN, tipBaseY=a.endY-ny*TIP_LEN;
+    const perpX=-ny, perpY=nx;
+    ctx.fillStyle=a.col;ctx.beginPath();
+    ctx.moveTo(a.endX,a.endY);
+    ctx.lineTo(tipBaseX+perpX*TIP_W,tipBaseY+perpY*TIP_W);
+    ctx.lineTo(tipBaseX-perpX*TIP_W,tipBaseY-perpY*TIP_W);
+    ctx.closePath();ctx.fill();
+
+    const lx=a.endX+nx*16, ly=a.endY+ny*16;
+    ctx.font='bold 11px -apple-system,"Segoe UI",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    const tw=ctx.measureText(a.label).width;
+    ctx.fillStyle=a.col;ctx.globalAlpha=0.9;
+    roundRect(ctx,lx-tw/2-3,ly-8,tw+6,16,3);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.fillText(a.label,lx,ly+1);
+  });
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+// ===== 鐩告満骞虫粦杩囨浮 =====
+function smoothTransition(){
+  if(!camTarget) return;
+  const elapsed = performance.now() - camTarget.t0;
+  let t = Math.min(1, elapsed / camTarget.dur);
+  // easeInOutCubic
+  t = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  rotX = camSource.rotX + (camTarget.rotX - camSource.rotX) * t;
+  rotY = camSource.rotY + (camTarget.rotY - camSource.rotY) * t;
+  zoom = camSource.zoom + (camTarget.zoom - camSource.zoom) * t;
+  if(t >= 1) camTarget = null;
+  requestRedraw();
+}
+
+function drawScene(){
+  if(!canvas)return;
+  // 鐩告満杩囨浮
+  smoothTransition();
+  ctx=canvas.getContext('2d');
+
+  // 鑳屾櫙娓愬彉
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#0d1018');bg.addColorStop(1,'#070910');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  drawCoordinateAxes();
+
+  const cn=result?result.cn:getCn();
+  const oX=0,oZ=0;
+
+  // ===== 鍦伴潰缃戞牸 鈥� 甯︽笎鍙樻贰鍑� =====
+  const gs=1000;
+  ctx.lineWidth=0.6;
+  for(let gx=0;gx<=cn.w;gx+=gs){
+    const a=proj(oX+gx,0,oZ),b=proj(oX+gx,0,oZ+cn.l);
+    const dist=Math.abs(gx-cn.w/2)/(cn.w/2);
+    ctx.strokeStyle=`rgba(60,75,120,${0.2*(1-dist*0.5)})`;
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+  for(let gz=0;gz<=cn.l;gz+=gs){
+    const a=proj(oX,0,oZ+gz),b=proj(oX+cn.w,0,oZ+gz);
+    const dist=Math.abs(gz-cn.l/2)/(cn.l/2);
+    ctx.strokeStyle=`rgba(60,75,120,${0.2*(1-dist*0.5)})`;
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+
+  // ===== 瀹瑰櫒 鈥� 鍗婇€忔槑澧� + 鍦版澘 =====
+  drawWireframe(oX,0,oZ,cn.w,cn.h,cn.l,'rgba(60,75,110,0.5)',1.5);
+  // 鍦版澘锛堝崐閫忔槑娣辫壊锛�
+  drawQuad([oX,0,oZ],[oX+cn.w,0,oZ],[oX+cn.w,0,oZ+cn.l],[oX,0,oZ+cn.l],'rgba(12,16,28,0.35)');
+  // 鍚庡锛堟瀬娣★級
+  drawQuad([oX,0,oZ+cn.l],[oX+cn.w,0,oZ+cn.l],[oX+cn.w,cn.h,oZ+cn.l],[oX,cn.h,oZ+cn.l],'rgba(30,35,55,0.06)');
+  // 鍙冲锛堟瀬娣★級
+  drawQuad([oX+cn.w,0,oZ],[oX+cn.w,0,oZ+cn.l],[oX+cn.w,cn.h,oZ+cn.l],[oX+cn.w,cn.h,oZ],'rgba(30,35,55,0.04)');
+
+  // 绌虹姸鎬佹彁绀�
+  if(!result&&cargoList.length===0){
+    ctx.fillStyle='#3a3f55';ctx.font=Math.round(W/50)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('鐐瑰嚮銆屽紑濮嬭绠椼€嶆煡鐪�3D瑁呮煖鏁堟灉',W/2,H/2);
+    ctx.font=Math.round(W/70)+'px sans-serif';ctx.fillStyle='#282c3d';
+    ctx.fillText('鍏堝湪宸︿晶娣诲姞璐х墿锛岀劧鍚庣偣鍑昏绠�',W/2,H/2+40);
+    return;
+  }
+
+  const total=renderList.length;
+  let showN=animState.progress>0?Math.ceil(animState.progress*total):total;
+
+  // ===== 鍦伴潰闃村奖灞� 鈥� 鍏堢敾闃村奖鍐嶇敾绠卞瓙 =====
+  if(!wireframe){
+    for(let i=0;i<showN&&i<total;i++){
+      const item=renderList[i],p=item.pos;
+      const sx=oX+p.x, sz=oZ+p.z;
+      const shadowY=1; // 鐣ラ珮浜庡湴闈�
+      const shadowPad=30; // 闃村奖澶栨墿
+      // 鍗婇€忔槑榛戣壊妞渾鎶曞奖
+      drawQuad(
+        [sx-shadowPad,shadowY,sz-shadowPad],
+        [sx+p.w+shadowPad,shadowY,sz-shadowPad],
+        [sx+p.w+shadowPad,shadowY,sz+p.d+shadowPad],
+        [sx-shadowPad,shadowY,sz+p.d+shadowPad],
+        'rgba(0,0,0,0.12)'
+      );
+    }
+  }
+
+  // 鏋勫缓缁樺埗鍒楄〃锛堟繁搴︽帓搴忥級
+  let drawItems=[];
+  for(let i=0;i<showN&&i<total;i++){
+    const item=renderList[i],p=item.pos;
+    const pr=proj(oX+p.x+p.w/2,p.y+p.h/2,oZ+p.z+p.d/2);
+    let slide=0;
+    if(animState.progress>0&&i===showN-1){
+      const frac=(animState.progress*total)-Math.floor(animState.progress*total);
+      slide=(1-frac)*cn.w*1.5;
+    }
+    drawItems.push({item,depth:pr[2],slide,idx:i});
+  }
+  drawItems.sort((a,b)=>b.depth-a.depth);
+
+  if(wireframe){
+    ctx.lineWidth=1.5;
+    drawItems.forEach(({item,slide})=>{
+      const p=item.pos;
+      drawWireframe(oX+p.x+slide,p.y,oZ+p.z,p.w,p.h,p.d,`rgb(${item.color})`);
+    });
+  } else {
+    drawItems.forEach(({item,slide,idx})=>{
+      const p=item.pos;
+      drawBox(oX+p.x+slide,p.y,oZ+p.z,p.w,p.h,p.d,item.color,idx===hoverIdx);
+    });
+  }
+
+  // ===== 灏哄鏍囨敞 鈥� 鍦ㄧ瀛愪笂鏂规樉绀哄悕绉� =====
+  if(!wireframe && showN > 0 && showN <= 60){ // 鏁伴噺灏戞椂鎵嶆樉绀烘爣娉紝閬垮厤澶贡
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    drawItems.forEach(({item})=>{
+      const p=item.pos;
+      const top=proj(oX+p.x+p.w/2, p.y+p.h+30, oZ+p.z+p.d/2);
+      const fontSize=Math.max(9, Math.min(12, 10*zoom));
+      ctx.font=`600 ${fontSize}px -apple-system,sans-serif`;
+      ctx.fillStyle='rgba(200,210,230,0.75)';
+      ctx.fillText(item.name, top[0], top[1]);
+    });
+  }
+}
+
+function drawQuad(a,b,c,d,color){
+  const pa=proj(a[0],a[1],a[2]),pb=proj(b[0],b[1],b[2]),pc=proj(c[0],c[1],c[2]),pd=proj(d[0],d[1],d[2]);
+  ctx.fillStyle=color;ctx.beginPath();
+  ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.lineTo(pc[0],pc[1]);ctx.lineTo(pd[0],pd[1]);
+  ctx.closePath();ctx.fill();
+}
+
+function drawWireframe(x,y,z,w,h,d,color,lw){
+  const c=[[x,y,z],[x+w,y,z],[x+w,y,z+d],[x,y,z+d],[x,y+h,z],[x+w,y+h,z],[x+w,y+h,z+d],[x,y+h,z+d]];
+  const p=c.map(v=>proj(...v));
+  const edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  ctx.strokeStyle=color;ctx.lineWidth=lw||1;
+  edges.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(p[a][0],p[a][1]);ctx.lineTo(p[b][0],p[b][1]);ctx.stroke()});
+}
+
+function drawBox(x,y,z,w,h,d,rgb,isHover){
+  const corners=[[x,y,z],[x+w,y,z],[x+w,y,z+d],[x,y,z+d],[x,y+h,z],[x+w,y+h,z],[x+w,y+h,z+d],[x,y+h,z+d]];
+  const pts=corners.map(c=>proj(...c));
+
+  const faces=[
+    {vi:[4,5,6,7],n:[0,1,0],name:'top'},
+    {vi:[0,1,5,4],n:[0,0,-1],name:'front'},
+    {vi:[1,2,6,5],n:[1,0,0],name:'right'},
+    {vi:[3,0,4,7],n:[-1,0,0],name:'left'},
+    {vi:[2,3,7,6],n:[0,0,1],name:'back'},
+    {vi:[0,3,2,1],n:[0,-1,0],name:'bottom'}
+  ];
+  const r=rgb[0],g=rgb[1],b=rgb[2];
+
+  const facesD=faces.map(f=>({...f,avgZ:f.vi.reduce((s,vi)=>s+pts[vi][2],0)/f.vi.length}));
+  facesD.sort((a,b)=>b.avgZ-a.avgZ);
+
+  const visibleEdges=[];
+
+  facesD.forEach(f=>{
+    // 娉曠嚎璁＄畻
+    const v1=[corners[f.vi[1]][0]-corners[f.vi[0]][0],corners[f.vi[1]][1]-corners[f.vi[0]][1],corners[f.vi[1]][2]-corners[f.vi[0]][2]];
+    const v2=[corners[f.vi[2]][0]-corners[f.vi[0]][0],corners[f.vi[2]][1]-corners[f.vi[0]][1],corners[f.vi[2]][2]-corners[f.vi[0]][2]];
+    const fn=[v1[1]*v2[2]-v1[2]*v2[1],v1[2]*v2[0]-v1[0]*v2[2],v1[0]*v2[1]-v1[1]*v2[0]];
+    const fLen=Math.sqrt(fn[0]*fn[0]+fn[1]*fn[1]+fn[2]*fn[2]);
+    if(fLen<0.001)return;fn[0]/=fLen;fn[1]/=fLen;fn[2]/=fLen;
+
+    // 灞忓箷绌洪棿鑳岄潰鍓旈櫎
+    const p0=pts[f.vi[0]],p1=pts[f.vi[1]],p2=pts[f.vi[2]];
+    const cross2d=(p1[0]-p0[0])*(p2[1]-p0[1])-(p1[1]-p0[1])*(p2[0]-p0[0]);
+    if(cross2d>0)return;
+
+    // ===== 澶氬厜婧愬厜鐓фā鍨� =====
+    // 涓诲厜 鈥� 婕弽灏�
+    const diffKey = Math.max(0, fn[0]*L_KEY[0]+fn[1]*L_KEY[1]+fn[2]*L_KEY[2]);
+    // 琛ュ厜 鈥� 鍐疯壊寮卞厜
+    const diffFill = Math.max(0, fn[0]*L_FILL[0]+fn[1]*L_FILL[1]+fn[2]*L_FILL[2]);
+    // 杞粨鍏� 鈥� 鑳岄潰寰厜
+    const diffBack = Math.max(0, fn[0]*L_BACK[0]+fn[1]*L_BACK[1]+fn[2]*L_BACK[2]);
+
+    // 楂樺厜锛圔linn-Phong锛夆€� 鍗婅鍚戦噺
+    const viewDir = [0, 0, 1]; // 绠€鍖栵細瑙傚療鏂瑰悜杩戜技
+    const halfKey = normalize3([L_KEY[0]+viewDir[0], L_KEY[1]+viewDir[1], L_KEY[2]+viewDir[2]]);
+    const specDot = Math.max(0, fn[0]*halfKey[0]+fn[1]*halfKey[1]+fn[2]*halfKey[2]);
+    const specular = Math.pow(specDot, SPEC_POWER) * SPEC_INTENSITY;
+
+    // 鏈€缁堜寒搴� = 鐜 + 婕弽灏� + 楂樺厜
+    const brightness = AMBIENT + diffKey*0.50 + diffFill*0.12 + diffBack*0.08;
+    // 楂樺厜鍋忕櫧鑹诧紙澧炲姞棰滆壊鐨勪寒搴﹂€氶亾锛�
+    const cr=Math.min(255, Math.round(r*brightness + 255*specular));
+    const cg=Math.min(255, Math.round(g*brightness + 255*specular));
+    const cb=Math.min(255, Math.round(b*brightness + 255*specular));
+
+    // 鐢ㄦ笎鍙樺～鍏呴潰锛堜粠浜埌鏆楁ā鎷熸洸闈㈡繁搴︽劅锛�
+    // 鎵惧埌闈㈢殑灞忓箷杈圭晫
+    const fv = f.vi.map(i => pts[i]);
+    const minX = Math.min(...fv.map(p=>p[0]));
+    const maxX = Math.max(...fv.map(p=>p[0]));
+    const minY = Math.min(...fv.map(p=>p[1]));
+    const maxY = Math.max(...fv.map(p=>p[1]));
+
+    // 濡傛灉闈㈣冻澶熷ぇ锛岀敤娓愬彉锛涘惁鍒欑敤绾壊
+    const faceArea = (maxX-minX) * (maxY-minY);
+    if(faceArea > 500 && (maxX-minX) > 10 && (maxY-minY) > 10){
+      // 寰勫悜娓愬彉 鈥� 浠庝腑蹇冧寒鍒拌竟缂樻殫
+      const cx = (minX+maxX)/2, cy = (minY+maxY)/2;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(maxX-minX, maxY-minY)*0.6);
+      const br = Math.min(255, Math.round(r*(brightness+0.08)+255*specular));
+      const bg2 = Math.min(255, Math.round(g*(brightness+0.08)+255*specular));
+      const bb = Math.min(255, Math.round(b*(brightness+0.08)+255*specular));
+      grad.addColorStop(0, `rgba(${br},${bg2},${bb},0.88)`);
+      grad.addColorStop(1, `rgba(${cr},${cg},${cb},0.82)`);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},0.85)`;
+    }
+
+    ctx.strokeStyle=`rgba(${cr},${cg},${cb},0.85)`;
+    ctx.lineWidth=0.5;
+    ctx.beginPath();
+    f.vi.forEach((vi,j)=>{const pt=pts[vi];j===0?ctx.moveTo(pt[0],pt[1]):ctx.lineTo(pt[0],pt[1])});
+    ctx.closePath();ctx.fill();ctx.stroke();
+
+    // 鏀堕泦鍙闈㈣竟缂�
+    const edges=[[f.vi[0],f.vi[1]],[f.vi[1],f.vi[2]],[f.vi[2],f.vi[3]],[f.vi[3],f.vi[0]]];
+    edges.forEach(e=>visibleEdges.push(e));
+  });
+
+  // ===== 纭竟绾� =====
+  const edgeR=Math.max(0,Math.round(r*0.3));
+  const edgeG=Math.max(0,Math.round(g*0.3));
+  const edgeB=Math.max(0,Math.round(b*0.3));
+
+  const edgeSet=new Set();
+  const uniqueEdges=[];
+  visibleEdges.forEach(([a,b])=>{
+    const key=Math.min(a,b)+'-'+Math.max(a,b);
+    if(!edgeSet.has(key)){edgeSet.add(key);uniqueEdges.push([a,b]);}
+  });
+
+  // 搴曞眰鏆楃嚎
+  ctx.strokeStyle=`rgba(${edgeR},${edgeG},${edgeB},0.85)`;
+  ctx.lineWidth=2.0;
+  ctx.lineCap='round';
+  uniqueEdges.forEach(([a,b])=>{
+    ctx.beginPath();ctx.moveTo(pts[a][0],pts[a][1]);ctx.lineTo(pts[b][0],pts[b][1]);ctx.stroke();
+  });
+  // 椤跺眰浜嚎锛堥珮鍏夎竟缂� 鈥� 澧炲己绔嬩綋鎰燂級
+  const hiR=Math.min(255,r+50),hiG=Math.min(255,g+50),hiB=Math.min(255,b+50);
+  ctx.strokeStyle=`rgba(${hiR},${hiG},${hiB},0.3)`;
+  ctx.lineWidth=0.7;
+  uniqueEdges.forEach(([a,b])=>{
+    ctx.beginPath();ctx.moveTo(pts[a][0],pts[a][1]);ctx.lineTo(pts[b][0],pts[b][1]);ctx.stroke();
+  });
+
+  // 瑙掔偣鏍囪
+  ctx.fillStyle=`rgba(${Math.min(255,r+30)},${Math.min(255,g+30)},${Math.min(255,b+30)},0.6)`;
+  corners.forEach((_,i)=>{
+    const p=pts[i];
+    ctx.beginPath();ctx.arc(p[0],p[1],2,0,Math.PI*2);ctx.fill();
+  });
+
+  // ===== Hover 楂樹寒 鈥� 鍙戝厜鑴夊啿鏁堟灉 =====
+  if(isHover){
+    ctx.save();
+    ctx.shadowColor='rgba(255,255,255,0.7)';ctx.shadowBlur=12;
+    ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=2.5;
+    uniqueEdges.forEach(([a,b])=>{
+      ctx.beginPath();ctx.moveTo(pts[a][0],pts[a][1]);ctx.lineTo(pts[b][0],pts[b][1]);ctx.stroke();
+    });
+    ctx.restore();
+    // 瑙掔偣鏀惧ぇ
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    corners.forEach((_,i)=>{
+      const p=pts[i];ctx.beginPath();ctx.arc(p[0],p[1],3.5,0,Math.PI*2);ctx.fill();
+    });
+  }
+}
+
+function checkHover(e){
+  if(!result||!renderList.length){hoverIdx=-1;$('tooltip').style.display='none';return}
+  const rect=canvas.getBoundingClientRect();
+  if(rect.width===0||rect.height===0){hoverIdx=-1;$('tooltip').style.display='none';return}
+  const mx=(e.clientX-rect.left)*(canvas.width/rect.width);
+  const my=(e.clientY-rect.top)*(canvas.height/rect.height);
+  let closest=-1,closestDist=1e9;
+  const total=renderList.length;
+  let showN=animState.progress>0?Math.ceil(animState.progress*total):total;
+  const screenFactor=Math.min(W,H)/3000;
+
+  for(let i=showN-1;i>=0&&i<total;i--){
+    const item=renderList[i],p=item.pos;
+    const pr=proj(p.x+p.w/2,p.y+p.h/2,p.z+p.d/2);
+    const dx=mx-pr[0],dy=my-pr[1],dist=Math.sqrt(dx*dx+dy*dy);
+    const hitR=Math.max(p.w,p.h,p.d)*zoom*screenFactor*0.4;
+    if(dist<hitR&&dist<closestDist){closest=i;closestDist=dist;}
+  }
+
+  hoverIdx=closest;
+  const tip=$('tooltip');
+  if(closest>=0){
+    const it=renderList[closest];
+    tip.style.display='block';
+    const cRect=canvas.parentElement.getBoundingClientRect();
+    let left=e.clientX-cRect.left+15,top=e.clientY-cRect.top-80;
+    const tw=tip.offsetWidth||200,th=tip.offsetHeight||100;
+    if(left+tw>cRect.width)left=e.clientX-cRect.left-tw-15;
+    if(top<0)top=e.clientY-cRect.top+15;
+    tip.style.left=left+'px';tip.style.top=top+'px';
+    tip.innerHTML=`<div class="tn">${esc(it.name)}</div>
+      <div class="tr"><span class="tl">灏哄</span><span>${it.pos.w}脳${it.pos.d}脳${it.pos.h}mm</span></div>
+      <div class="tr"><span class="tl">閲嶉噺</span><span>${it.wt}kg</span></div>
+      <div class="tr"><span class="tl">浣嶇疆</span><span>(${it.pos.x}, ${it.pos.y}, ${it.pos.z})</span></div>
+      <div class="tr"><span class="tl">浣撶Н</span><span>${(it.pos.w*it.pos.d*it.pos.h/1e9).toFixed(4)}m鲁</span></div>`;
+  } else tip.style.display='none';
+}
+
+function resetV(){
+  camSource={rotX,rotY,zoom};
+  camTarget={rotX:-0.5,rotY:0.6,zoom:1.0,t0:performance.now(),dur:400};
+  panX=0;panZ=0;
+  requestRedraw();
+}
+function togP(h){h.classList.toggle('shut');h.nextElementSibling.classList.toggle('hid')}
+function togWF(){wireframe=!wireframe;$('wfBtn').classList.toggle('on',wireframe);requestRedraw()}
+function setView(v){
+  camSource={rotX,rotY,zoom};
+  let tx,ty,tz;
+  switch(v){
+    case'front':tx=0;ty=0;tz=0.9;break;
+    case'top':tx=1.5;ty=0;tz=0.7;break;
+    case'side':tx=0;ty=1.57;tz=0.9;break;
+  }
+  camTarget={rotX:tx,rotY:ty,zoom:tz,t0:performance.now(),dur:350};
+  requestRedraw();
+}
+
+// 鍫嗗彔鍔熻兘
+function initStackMode(){const s=localStorage.getItem('stackMode');stackMode=s!==null?s==='true':true;updateStackBtn();}
+function togStack(){stackMode=!stackMode;localStorage.setItem('stackMode',stackMode);updateStackBtn();toast(`鍫嗗彔妯″紡 ${stackMode?'寮€鍚�':'鍏抽棴'}`,'info',1500);}
+function updateStackBtn(){const b=$('stackBtn');b.classList.toggle('on',stackMode);b.title=stackMode?'鍫嗗彔妯″紡 (鐐瑰嚮鍏抽棴)':'鍫嗗彔妯″紡 (鐐瑰嚮寮€鍚�)';}
+
+/* ===== ANIMATION (浣跨敤requestAnimationFrame鏇夸唬setInterval) ===== */
+function animReset(){
+  animState.playing=false;animState.progress=0;
+  if(animState.rafId){cancelAnimationFrame(animState.rafId);animState.rafId=null;}
+  if(animState.timer){clearInterval(animState.timer);animState.timer=null;}
+  $('playBtn').textContent='鈻�';updateAnimUI();requestRedraw();
+}
+function togPlay(){
+  if(!result)return;
+  animState.playing=!animState.playing;
+  $('playBtn').textContent=animState.playing?'鈴�':'鈻�';
+  if(animState.playing){
+    if(animState.progress>=1)animState.progress=0;
+    let last=performance.now();
+    const tick=now=>{
+      if(!animState.playing)return;
+      const dt=(now-last)/1000;last=now;
+      animState.progress+=dt*0.12*animState.speed;
+      if(animState.progress>=1){animState.progress=1;animState.playing=false;$('playBtn').textContent='鈻�';}
+      updateAnimUI();requestRedraw();
+      if(animState.playing)animState.rafId=requestAnimationFrame(tick);
+    };
+    animState.rafId=requestAnimationFrame(tick);
+  } else {if(animState.rafId){cancelAnimationFrame(animState.rafId);animState.rafId=null;}}
+}
+function animStep(dir){if(!result)return;const n=result.placed.length;if(!n)return;animState.progress=Math.max(0,Math.min(1,animState.progress+dir/n));updateAnimUI();requestRedraw();}
+function seekStart(e){
+  const bar=$('progBar');
+  const upd=ev=>{const r=bar.getBoundingClientRect();animState.progress=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));updateAnimUI();requestRedraw();};
+  upd(e);
+  const off=()=>{window.removeEventListener('mousemove',upd);window.removeEventListener('mouseup',off);};
+  window.addEventListener('mousemove',upd);window.addEventListener('mouseup',off);
+}
+function updateAnimUI(){
+  $('progFill').style.width=(animState.progress*100)+'%';
+  const n=result?result.placed.length:0;
+  $('stepInfo').textContent=Math.floor(animState.progress*n)+'/'+n;
+}
+function togSpdMenu(){$('spdMenu').classList.toggle('sh')}
+function setSpd(s){animState.speed=s;document.querySelector('.asbtn').textContent=s+'x';document.querySelectorAll('.aso').forEach(e=>e.classList.toggle('on',parseFloat(e.textContent)===s));$('spdMenu').classList.remove('sh')}
+
+/* ===== LAYERS ===== */
+function renderLayers(){
+  if(!result)return;
+  const el=$('lyCont'),layers={};
+  result.placed.forEach(p=>{const y=Math.round(p.pos.y/200)*200;if(!layers[y])layers[y]=[];layers[y].push(p);});
+  const sorted=Object.keys(layers).sort((a,b)=>a-b);
+  el.innerHTML=sorted.map(y=>{
+    const items=layers[y];
+    return`<div class="ls"><div class="lh">馃搻 楂樺害 ${y}mm 鈥� ${items.length}浠�</div><div class="lg">${items.map(it=>`<div class="li"><div class="ln">${esc(it.n)}</div><div class="ld">${it.pos.w}脳${it.pos.d}脳${it.pos.h}mm</div><div class="ld">浣嶇疆:(${it.pos.x},${it.pos.y},${it.pos.z})</div><div class="ld">${it.wt}kg</div></div>`).join('')}</div></div>`;
+  }).join('')||'<p style="color:var(--t3);text-align:center;margin-top:40px">鏃犳暟鎹�</p>';
+}
+
+/* ===== REPORT ===== */
+function renderReport(){
+  if(!result)return;
+  const s=result.stats,sug=[];
+  if(+s.vu<50)sug.push('浣撶Н鍒╃敤鐜囦綆浜�50%锛屽缓璁贩瑁呮洿澶氬昂瀵哥殑璐х墿濉ˉ绌洪殭');
+  else if(+s.vu<70)sug.push('浣撶Н鍒╃敤鐜囦腑绛夛紝鍙皾璇曡皟鏁磋揣鐗╃粍鍚堟垨娣诲姞灏忎欢濉厖');
+  else if(+s.vu<80)sug.push('浣撶Н鍒╃敤鐜囪壇濂�');
+  else sug.push('浣撶Н鍒╃敤鐜団墺80%锛屾柟妗堝悎鐞�');
+  if(+s.wu>90)sug.push('鈿狅笍 閲嶉噺鍒╃敤鐜囧凡鎺ヨ繎涓婇檺锛岃鏍稿疄瀹為檯杞介噸');
+  else if(+s.wu<20)sug.push('閲嶉噺鍒╃敤鐜囧亸浣庯紝闆嗚绠辨壙閲嶈兘鍔涙湭鍏呭垎鍒╃敤');
+  if(s.ul>0)sug.push(`${s.ul}浠舵湭瑁呰浇锛屽叏閮ㄨ瀹岄渶绾�${s.cnN}涓泦瑁呯`);
+  const vc=+s.vu>=80?'var(--ok)':+s.vu>=50?'var(--warn)':'var(--err)';
+  const wc=+s.wu>=90?'var(--err)':+s.wu>=60?'var(--warn)':'var(--ok)';
+  const sm={};
+  result.placed.forEach(p=>{if(!sm[p.n])sm[p.n]={c:0,wt:0,vol:0};sm[p.n].c++;sm[p.n].wt+=p.wt;sm[p.n].vol+=p.pos.w*p.pos.h*p.pos.d;});
+  $('rpCont').innerHTML=`
+    <div class="rs"><h3>馃搳 瑁呮煖姹囨€�</h3><div class="rg">
+      <div class="rdc"><div class="rdl">瑁呰浇浠舵暟</div><div class="rdv">${s.ld}</div></div>
+      <div class="rdc"><div class="rdl">鏈杞戒欢鏁�</div><div class="rdv" style="color:var(--warn)">${s.ul}</div></div>
+      <div class="rdc"><div class="rdl">鍗犵敤浣撶Н</div><div class="rdv">${(s.volU/1e9).toFixed(2)}m鲁</div></div>
+      <div class="rdc"><div class="rdl">鎬婚噸閲�</div><div class="rdv">${s.totalWt.toLocaleString()}kg</div></div>
+    </div></div>
+    <div class="rs"><h3>馃搱 鍒╃敤鐜囧垎鏋�</h3><div class="rg">
+      <div class="rdc"><div class="rdl">浣撶Н鍒╃敤鐜�</div><div class="rdv" style="color:${vc}">${s.vu}%</div><div class="rb"><div class="rbf" style="width:${s.vu}%;background:${vc}"></div></div></div>
+      <div class="rdc"><div class="rdl">閲嶉噺鍒╃敤鐜�</div><div class="rdv" style="color:${wc}">${s.wu}%</div><div class="rb"><div class="rbf" style="width:${s.wu}%;background:${wc}"></div></div></div>
+    </div></div>
+    <div class="rs"><h3>馃搵 璐х墿鏄庣粏</h3><table class="rpt"><thead><tr><th>鍚嶇О</th><th>瑁呰浇鏁伴噺</th><th>閲嶉噺鍚堣</th><th>浣撶Н鍚堣</th></tr></thead>
+    <tbody>${Object.entries(sm).map(([n,d])=>`<tr><td>${esc(n)}</td><td>${d.c}</td><td>${d.wt}kg</td><td>${(d.vol/1e9).toFixed(3)}m鲁</td></tr>`).join('')}</tbody></table></div>
+    <div class="rs"><h3>馃挕 寤鸿</h3><ul class="rsg">${sug.map(s=>'<li>'+s+'</li>').join('')}</ul></div>`;
+}
+
+/* ===== PLANS ===== */
+function getPlans(){try{return JSON.parse(localStorage.getItem('cp2')||'[]')}catch{return[]}}
+function setPlans(p){try{localStorage.setItem('cp2',JSON.stringify(p))}catch(e){toast('瀛樺偍绌洪棿涓嶈冻锛岃鍒犻櫎鏃ф柟妗�','error')}}
+function generatePlanName(){
+  const ct=$('cType').value;
+  const cn=ct==='custom'?'鑷畾涔夋煖':ct;
+  const plans=getPlans();
+  let maxN=0;
+  plans.forEach(p=>{if(p.n.startsWith(cn)){const m=p.n.match(new RegExp('^'+cn+'(\\d+)$'));if(m)maxN=Math.max(maxN,+m[1]);}});
+  const name=cn+String(maxN+1).padStart(3,'0');
+  $('autoPlanName').textContent=name;$('planName').value=name;
+}
+function savePlan(){
+  const n=$('planName').value.trim();
+  if(!n){toast('璇峰厛鐢熸垚鏂规鍚嶇О','error');return;}
+  const p=getPlans();p.push({id:Date.now(),n,cr:Date.now(),md:Date.now(),cn:getCn(),gl:[...cargoList],res:result});
+  setPlans(p);closeM('ps');toast('宸蹭繚瀛�: '+n,'success');
+}
+function renderPlans(){
+  const plans=getPlans(),sr=($('planSearch').value||'').toLowerCase(),st=$('planSort').value;
+  let f=plans.filter(p=>p.n.toLowerCase().includes(sr));
+  f.sort((a,b)=>{switch(st){case'cd':return b.cr-a.cr;case'ca':return a.cr-b.cr;case'md':return b.md-a.md;case'ma':return a.md-b.md;case'na':return a.n.localeCompare(b.n);case'nd':return b.n.localeCompare(a.n)}});
+  $('plTB').innerHTML=f.map(p=>`<tr><td><input type="checkbox" class="pcb" data-id="${p.id}"></td><td>${esc(p.n)}</td><td>${new Date(p.cr).toLocaleDateString()}</td><td>${new Date(p.md).toLocaleDateString()}</td><td><button class="btn bs" onclick="loadPlan(${p.id})">鍔犺浇</button> <button class="btn bs" onclick="renamePlan(${p.id})">閲嶅懡鍚�</button></td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--t3)">鏆傛棤鏂规</td></tr>';
+}
+function renamePlan(id){const plans=getPlans(),p=plans.find(x=>x.id===id);if(!p)return;const nn=prompt('鏂板悕绉�:',p.n);if(nn&&nn.trim()){let fn=nn.trim(),c=1;while(plans.some(x=>x.id!==id&&x.n===fn)){fn=nn.trim()+'_'+c++;}p.n=fn;p.md=Date.now();setPlans(plans);renderPlans();toast('宸查噸鍛藉悕: '+fn,'success');}}
+function loadPlan(id){const plans=getPlans(),p=plans.find(x=>x.id===id);if(!p)return;cargoList=p.gl||[];renderTB();if(p.cn){$('cL').value=p.cn.l;$('cW').value=p.cn.w;$('cH').value=p.cn.h;$('cMW').value=p.cn.mw;$('cDH').value=p.cn.dh;$('cType').value='custom';}if(p.res){result=p.res;updateStats();buildRenderList();renderLayers();renderReport();animReset();$('animBar').style.display='flex';resizeCanvas();drawScene();}closeM('pl');toast('宸插姞杞�: '+p.n,'success');}
+function togAll(){const a=$('plAll').checked;document.querySelectorAll('.pcb').forEach(c=>c.checked=a)}
+function delPlans(){const ids=[];document.querySelectorAll('.pcb:checked').forEach(c=>ids.push(+c.dataset.id));if(!ids.length)return;if(!confirm('鍒犻櫎'+ids.length+'涓柟妗�?'))return;setPlans(getPlans().filter(x=>!ids.includes(x.id)));renderPlans();toast('宸插垹闄�','success');}
+
+/* ===== EXPORT ===== */
+// 蹇嵎瀵煎嚭锛氱洿鎺ュ鍑哄綋鍓嶆暟鎹紝鏃犻渶閫夋嫨鏂规
+function expCSVQuick(){
+  if(!cargoList.length&&!result){toast('鏃犳暟鎹彲瀵煎嚭','error');return;}
+  const data=[['鍚嶇О','闀�(mm)','瀹�(mm)','楂�(mm)','閲嶉噺(kg)','鏁伴噺','鍙壙杞�(0/1)','涓嶅€掔疆','绂佸簳灞�','闈犲','鐩搁偦璐х墿']];
+  if(result&&result.placed.length){
+    // 鎸夊悕绉板垎缁勫鍑哄凡瑁呰浇璐х墿
+    const cm={};
+    result.placed.forEach(p=>{if(!cm[p.n])cm[p.n]={...p,q:0,l:p.l||p.pos.w,w:p.w||p.pos.d,h:p.h||p.pos.h};cm[p.n].q++;});
+    Object.values(cm).forEach(c=>data.push([c.n,c.l,c.w,c.h,c.q,c.wt,1]));
+  } else {
+    cargoList.forEach(c=>data.push([c.n,c.l,c.w,c.h,c.wt,c.q,c.st?0:1,c.ni?1:0,c.nb?1:0,c.fw?1:0,c.ad||'']));
+  }
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'璐х墿娓呭崟');
+  XLSX.writeFile(wb,'ZCube_瑁呮煖鏂规.xlsx');toast('Excel 宸插鍑�','success');
+}
+function expCSV(){
+  const selIds=[];document.querySelectorAll('.pcb:checked').forEach(c=>selIds.push(+c.dataset.id));
+  if(!selIds.length){toast('璇峰厛閫夋嫨瑕佸鍑虹殑鏂规','error');return;}
+  const plans=getPlans().filter(p=>selIds.includes(p.id));if(!plans.length)return;
+  const allData=[];
+  plans.forEach((plan,idx)=>{
+    const code=(plan.n||'鏂规'+(idx+1)).replace(/[^a-zA-Z0-9]/g,'').substring(0,6)+String(idx+1).padStart(3,'0');
+    const src=(plan.res&&plan.res.placed&&plan.res.placed.length)?plan.res.placed:(plan.gl||[]);
+    if(plan.res&&plan.res.placed){
+      const cm={};plan.res.placed.forEach(item=>{if(!cm[item.id])cm[item.id]={...item,q:0};cm[item.id].q++;});
+      Object.values(cm).forEach(c=>allData.push([c.n,c.l,c.w,c.h,c.wt,c.q,code]));
+    } else {
+      plan.gl.forEach(c=>allData.push([c.n,c.l,c.w,c.h,c.wt,c.q,code]));
+    }
+  });
+  if(!allData.length){toast('閫変腑鏂规鏃犳暟鎹�','error');return;}
+  const ws=XLSX.utils.aoa_to_sheet([['鍚嶇О','闀�','瀹�','楂�','閲�','鏁伴噺','鏌滃瀷缂栧彿'],...allData]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'瑁呮煖鏂规');
+  XLSX.writeFile(wb,'瑁呮煖鏂规.xlsx');toast('瀵煎嚭鎴愬姛','success');
+}
+async function expPDF(){
+  const selIds=[];
+  document.querySelectorAll('.pcb:checked').forEach(c=>selIds.push(+c.dataset.id));
+  const allPlans=getPlans();
+  const selPlans=selIds.length?allPlans.filter(p=>selIds.includes(p.id)):allPlans;
+  if(!selPlans.length&&!result){toast('璇峰厛璁＄畻鎴栭€夋嫨鏂规','error');return;}
+
+  const schemes=selPlans.length?selPlans.map(p=>({
+    name:p.n,date:new Date(p.md).toLocaleString(),
+    cn:p.res?p.res.cn:p.cn,stats:p.res?p.res.stats:null,
+    placed:p.res?p.res.placed:[],cargoList:p.gl||[]
+  })):[{name:'褰撳墠鏂规',date:new Date().toLocaleString(),
+    cn:result.cn,stats:result.stats,placed:result.placed,cargoList:cargoListOrig||[]}];
+
+  toast('姝ｅ湪鐢熸垚PDF...','info',3000);
+
+  // 淇濆瓨褰撳墠鐘舵€�
+  const origResult=result;
+  const origRenderList=renderList;
+
+  // 涓烘瘡涓柟妗堟埅鍥�3D瑙嗗浘
+  const screenshots=[];
+  for(let si=0;si<schemes.length;si++){
+    const sc=schemes[si];
+    if(sc.placed&&sc.placed.length>0){
+      // 涓存椂鍔犺浇璇ユ柟妗堢殑result
+      result={placed:sc.placed,unplaced:0,cn:sc.cn,stats:sc.stats};
+      buildRenderList();
+      resizeCanvas();
+      drawScene();
+      // 绛変竴甯х‘淇濇覆鏌撳畬鎴�
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      try{screenshots.push(canvas.toDataURL('image/png'));}catch(e){screenshots.push('');}
+    }else{
+      screenshots.push('');
+    }
+  }
+
+  // 鎭㈠鍘熺姸鎬�
+  result=origResult;
+  renderList=origRenderList;
+  if(result){buildRenderList();resizeCanvas();drawScene();}
+
+  // 鏋勫缓姣忛〉HTML
+  function buildPageHTML(scheme,idx){
+    const s=scheme.stats,cn=scheme.cn;
+    const sm={};
+    (scheme.placed||[]).forEach(p=>{
+      const nm=p.n||'鏈煡';
+      if(!sm[nm])sm[nm]={c:0,wt:0,vol:0,l:p.l||p.pos.w,w:p.w||p.pos.d,h:p.h||p.pos.h};
+      sm[nm].c++;sm[nm].wt+=p.wt;sm[nm].vol+=p.pos.w*p.pos.h*p.pos.d;
+    });
+
+    const statsHTML=s?`<div style="display:flex;gap:8px;margin:8px 0">
+      <div style="flex:1;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center;background:#f8f9fb">
+        <div style="font-size:18px;font-weight:bold;color:#4a8eff">${s.ld}</div><div style="font-size:8px;color:#888">瑁呰浇浠舵暟</div></div>
+      <div style="flex:1;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center;background:#f8f9fb">
+        <div style="font-size:18px;font-weight:bold;color:#4a8eff">${s.vu}%</div><div style="font-size:8px;color:#888">浣撶Н鍒╃敤鐜�</div></div>
+      <div style="flex:1;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center;background:#f8f9fb">
+        <div style="font-size:18px;font-weight:bold;color:#4a8eff">${s.wu}%</div><div style="font-size:8px;color:#888">閲嶉噺鍒╃敤鐜�</div></div>
+      <div style="flex:1;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center;background:#f8f9fb">
+        <div style="font-size:18px;font-weight:bold;color:#4a8eff">${s.totalWt.toLocaleString()}</div><div style="font-size:8px;color:#888">瑁呰浇閲嶉噺(kg)</div></div>
+    </div>`:'<p style="color:red">鏃犺绠楃粨鏋�</p>';
+
+    const cargoRows=Object.entries(sm).map(([nm,d])=>
+      `<tr><td>${nm}</td><td>${d.l}脳${d.w}脳${d.h}</td><td>${d.c}</td><td>${(d.wt/d.c).toFixed(1)}</td><td>${d.wt.toLocaleString()}</td><td>${(d.vol/1e9).toFixed(3)}</td></tr>`
+    ).join('');
+
+    const imgHtml=screenshots[idx]?`<div style="margin:6px 0"><img src="${screenshots[idx]}" style="width:100%;border:1px solid #ddd;border-radius:6px"></div>`:'';
+
+    return `<div style="width:780px;padding:16px 20px;font-family:'Microsoft YaHei','SimHei','PingFang SC',sans-serif;color:#333;font-size:11px;line-height:1.5">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #4a8eff;padding-bottom:6px;margin-bottom:6px">
+        <div style="font-size:15px;font-weight:bold">${idx+1}. ${scheme.name}</div>
+        <div style="font-size:9px;color:#999">${scheme.date}</div>
+      </div>
+      ${imgHtml}
+      <div style="font-size:10px;color:#555;margin-bottom:4px">闆嗚绠�: ${cn.l}脳${cn.w}脳${cn.h}mm | 杞介噸: ${cn.mw.toLocaleString()}kg | 闄愰珮: ${cn.dh}mm</div>
+      ${statsHTML}
+      <div style="font-size:11px;font-weight:600;margin:6px 0 4px">璐х墿姹囨€�</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9px">
+        <thead><tr style="background:#f0f4fa">
+          <th style="border:1px solid #ddd;padding:4px 5px;text-align:left">鍚嶇О</th>
+          <th style="border:1px solid #ddd;padding:4px 5px;text-align:left">灏哄(mm)</th>
+          <th style="border:1px solid #ddd;padding:4px 5px;text-align:left">鏁伴噺</th>
+          <th style="border:1px solid #ddd;padding:4px 5px;text-align:left">鍗曢噸(kg)</th>
+          <th style="border:1px solid #ddd;padding:4px 5px;text-align:left">鍚堣閲�(kg)</th>
+          <th style="border:1px solid #ddd;padding:4px 5px;text-align:left">浣撶Н(m鲁)</th>
+        </tr></thead>
+        <tbody>${cargoRows}
+        ${s?`<tr style="font-weight:bold;background:#f8f9fb"><td style="border:1px solid #ddd;padding:4px 5px">鍚堣</td><td style="border:1px solid #ddd;padding:4px 5px">鈥�</td><td style="border:1px solid #ddd;padding:4px 5px">${s.ld}</td><td style="border:1px solid #ddd;padding:4px 5px">鈥�</td><td style="border:1px solid #ddd;padding:4px 5px">${s.totalWt.toLocaleString()}</td><td style="border:1px solid #ddd;padding:4px 5px">${(s.volU/1e9).toFixed(3)}</td></tr>`:''}
+        </tbody></table>
+    </div>`;
+  }
+
+  try{
+    const{jsPDF}=window.jspdf;
+    const doc=new jsPDF('p','mm','a4');
+    const PW=210,PH=297;
+
+    for(let si=0;si<schemes.length;si++){
+      if(si>0) doc.addPage();
+
+      const container=document.createElement('div');
+      container.style.cssText='position:fixed;left:-9999px;top:0;width:780px;z-index:-1;background:#fff';
+      container.innerHTML=buildPageHTML(schemes[si],si);
+      document.body.appendChild(container);
+
+      const imgs=container.querySelectorAll('img');
+      await Promise.all(Array.from(imgs).map(img=>new Promise(r=>{
+        if(img.complete)r();else{img.onload=r;img.onerror=r;}
+      })));
+
+      const cvs=await html2canvas(container,{scale:2,useCORS:true,backgroundColor:'#fff',width:780,windowWidth:780});
+      document.body.removeChild(container);
+
+      const imgData=cvs.toDataURL('image/png');
+      const imgW=PW-16;
+      const imgH=cvs.height/cvs.width*imgW;
+
+      if(imgH<=PH-16){
+        doc.addImage(imgData,'PNG',8,8,imgW,imgH);
+      }else{
+        let srcY=0;
+        const srcPageH=(PH-16)/imgW*cvs.width;
+        let page=0;
+        while(srcY<cvs.height){
+          if(page>0) doc.addPage();
+          const clip=document.createElement('canvas');
+          clip.width=cvs.width;
+          clip.height=Math.min(srcPageH,cvs.height-srcY);
+          clip.getContext('2d').drawImage(cvs,0,srcY,cvs.width,clip.height,0,0,cvs.width,clip.height);
+          doc.addImage(clip.toDataURL('image/png'),'PNG',8,8,imgW,clip.height/cvs.width*imgW);
+          srcY+=srcPageH;page++;
+        }
+      }
+    }
+
+    const total=doc.getNumberOfPages();
+    for(let i=1;i<=total;i++){
+      doc.setPage(i);
+      doc.setFontSize(7);doc.setTextColor(180,180,180);
+      doc.text(`ZCube - ${i}/${total}`,PW/2,PH-4,{align:'center'});
+    }
+
+    doc.save(`ZCube_瑁呮煖鏂规_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast(`PDF宸插鍑� (${schemes.length}涓柟妗�)`,'success');
+  }catch(e){
+    console.error('PDF瀵煎嚭閿欒:',e);
+    toast('PDF瀵煎嚭澶辫触: '+e.message,'error');
+  }
+}
+
+/* ===== UI HELPERS ===== */
+
+function switchV(v){
+  document.querySelectorAll('.vt').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
+  document.querySelectorAll('.vp').forEach(p=>p.classList.toggle('on',p.id==='panel'+v.charAt(0).toUpperCase()+v.slice(1)));
+  if(v==='3d'){resizeCanvas();requestRedraw();}
+}
+function openM(n){$('m-'+n).classList.add('sh');if(n==='pl')renderPlans();if(n==='ps')generatePlanName();}
+function closeM(n){$('m-'+n).classList.remove('sh')}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ===== KEYBOARD SHORTCUTS ===== */
+document.addEventListener('keydown',e=>{
+  // Don't intercept when typing in inputs
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  switch(e.key.toLowerCase()){
+    case' ':e.preventDefault();togPlay();break;
+    case'r':resetV();break;
+    case'f':setView('front');break;
+    case't':setView('top');break;
+    case's':setView('side');break;
+    case'w':togWF();break;
+    case'escape':document.querySelectorAll('.mo.sh').forEach(m=>m.classList.remove('sh'));break;
+  }
+});
+
+/* ===== INIT ===== */
+document.addEventListener('DOMContentLoaded',()=>{
+  init3D();renderTB();
+  // Close modals on overlay click
+  document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('sh')}));
+  // Close speed menu on outside click
+  document.addEventListener('click',e=>{if(!e.target.closest('.aspr'))$('spdMenu').classList.remove('sh')});
+  // Enter key to add cargo
+  ['gL','gW','gH','gQ','gWT','gBR'].forEach(id=>{
+    $(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addCargo();}});
+  });
+  $('gN').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addCargo();}});
+  // Clear invalid state on input
+  ['gL','gW','gH','gQ','gWT','gBR'].forEach(id=>{
+    $(id).addEventListener('input',()=>$(id).classList.remove('invalid'));
+  });
+});
+</script>
+</body>
+</html>
